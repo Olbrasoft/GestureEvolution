@@ -314,20 +314,10 @@ public class TrayIcon : IDisposable
         // Set flag to false
         _isAnimating = false;
 
-        // Always set idle icon immediately (on GTK thread via g_idle_add for safety)
-        var generation = _animationGeneration;
-        GLib.g_idle_add(_ =>
-        {
-            // Only update if generation still matches (no new animation started)
-            if (_animationGeneration == generation && !_isAnimating)
-            {
-                var iconPath = Path.Combine(_iconsPath, $"{IconIdle}.svg");
-                AppIndicator.app_indicator_set_icon_full(_indicator, iconPath, "Idle");
-                _isIconIdle = true;
-                _logger.LogDebug("Animation stopped, icon set to idle (generation {Generation})", generation);
-            }
-            return false;
-        }, IntPtr.Zero);
+        // NOTE: Do NOT set icon here - the caller (UpdateIcon) sets the correct icon
+        // based on actual state. Setting idle icon here via g_idle_add caused race
+        // conditions where the Recording icon was immediately overridden by idle.
+        _logger.LogDebug("Animation stopped (generation {Generation})", _animationGeneration);
     }
 
     /// <summary>

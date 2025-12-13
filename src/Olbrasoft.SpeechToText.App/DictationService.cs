@@ -98,17 +98,28 @@ public class DictationService : IDisposable
         if (e.Key != _triggerKey)
             return;
 
-        _logger.LogDebug("{TriggerKey} released, current state: {State}", _triggerKey, _state);
+        // Check ACTUAL CapsLock LED state, not just toggle internal state
+        // This prevents desynchronization when CapsLock is toggled while app is not in expected state
+        var capsLockOn = _keyboardMonitor.IsCapsLockOn();
+        _logger.LogDebug("{TriggerKey} released, CapsLock LED: {CapsLockOn}, current state: {State}",
+            _triggerKey, capsLockOn, _state);
 
-        // Toggle logic: first press starts recording, second press stops and transcribes
-        if (_state == DictationState.Idle)
+        // CapsLock ON + Idle → start recording
+        if (capsLockOn && _state == DictationState.Idle)
         {
-            _logger.LogInformation("{TriggerKey} pressed - starting dictation", _triggerKey);
+            _logger.LogInformation("{TriggerKey} pressed, CapsLock ON - starting dictation", _triggerKey);
             _ = Task.Run(() => StartDictationAsync());
         }
-        else if (_state == DictationState.Recording)
+        // CapsLock OFF + Recording → stop recording and transcribe
+        else if (!capsLockOn && _state == DictationState.Recording)
         {
-            _logger.LogInformation("{TriggerKey} pressed - stopping dictation", _triggerKey);
+            _logger.LogInformation("{TriggerKey} pressed, CapsLock OFF - stopping dictation", _triggerKey);
+            _ = Task.Run(() => StopDictationAsync());
+        }
+        // CapsLock ON + Recording → user toggled again, stop (emergency stop)
+        else if (capsLockOn && _state == DictationState.Recording)
+        {
+            _logger.LogWarning("CapsLock toggled ON while recording - emergency stop");
             _ = Task.Run(() => StopDictationAsync());
         }
         // If Transcribing, ignore the trigger key press (but cancel key is handled above)
