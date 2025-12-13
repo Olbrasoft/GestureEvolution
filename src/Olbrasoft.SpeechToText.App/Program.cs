@@ -185,6 +185,21 @@ try
         {
             logger.LogInformation("Tray icon clicked");
         };
+
+        // Handle Quit menu item
+        dbusTrayIcon.OnQuitRequested += () =>
+        {
+            logger.LogInformation("Quit requested from tray menu");
+            Console.WriteLine("\nQuit requested - shutting down...");
+            cts.Cancel();
+        };
+
+        // Handle About menu item
+        dbusTrayIcon.OnAboutRequested += () =>
+        {
+            logger.LogInformation("About dialog requested");
+            ShowAboutDialog(version);
+        };
     }
     else
     {
@@ -253,3 +268,34 @@ finally
 }
 
 Console.WriteLine("SpeechToText stopped");
+
+/// <summary>
+/// Shows the About dialog using zenity (GNOME dialog tool).
+/// </summary>
+static void ShowAboutDialog(string version)
+{
+    try
+    {
+        var aboutText = $"Speech to Text\n\n" +
+                        $"Version: {version}\n\n" +
+                        $"Voice transcription using Whisper AI.\n" +
+                        $"Press CapsLock to start dictation.\n\n" +
+                        $"https://github.com/Olbrasoft/SpeechToText";
+
+        var startInfo = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "zenity",
+            Arguments = $"--info --title=\"About Speech to Text\" --text=\"{aboutText.Replace("\"", "\\\"")}\" --width=400",
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        System.Diagnostics.Process.Start(startInfo);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Could not show About dialog: {ex.Message}");
+        Console.WriteLine($"Speech to Text v{version}");
+        Console.WriteLine("https://github.com/Olbrasoft/SpeechToText");
+    }
+}
