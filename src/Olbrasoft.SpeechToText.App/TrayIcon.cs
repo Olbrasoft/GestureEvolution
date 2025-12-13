@@ -43,6 +43,7 @@ public class TrayIcon : IDisposable
     // Keep callbacks alive to prevent GC
     private GObject.GCallback? _startCallback;
     private GObject.GCallback? _stopCallback;
+    private GObject.GCallback? _aboutCallback;
     private GObject.GCallback? _quitCallback;
 
     public TrayIcon(ILogger<TrayIcon> logger, DictationService dictationService, bool showAnimation = false)
@@ -211,6 +212,17 @@ public class TrayIcon : IDisposable
         var separator = Gtk.gtk_separator_menu_item_new();
         Gtk.gtk_menu_shell_append(menu, separator);
 
+        // About item
+        var aboutItem = Gtk.gtk_menu_item_new_with_label("ℹ About");
+        Gtk.gtk_menu_shell_append(menu, aboutItem);
+
+        _aboutCallback = (widget, data) =>
+        {
+            _logger.LogInformation("About dialog requested");
+            ShowAboutDialog();
+        };
+        GObject.g_signal_connect_data(aboutItem, "activate", _aboutCallback, IntPtr.Zero, IntPtr.Zero, 0);
+
         // Quit item
         var quitItem = Gtk.gtk_menu_item_new_with_label("✕ Quit");
         Gtk.gtk_menu_shell_append(menu, quitItem);
@@ -370,6 +382,53 @@ public class TrayIcon : IDisposable
 
         Gtk.gtk_widget_set_sensitive(_startItem, !isRecording);
         Gtk.gtk_widget_set_sensitive(_stopItem, isRecording);
+    }
+
+    /// <summary>
+    /// Shows the About dialog with application information.
+    /// </summary>
+    private void ShowAboutDialog()
+    {
+        var dialog = Gtk.gtk_about_dialog_new();
+
+        if (dialog == IntPtr.Zero)
+        {
+            _logger.LogError("Failed to create About dialog");
+            return;
+        }
+
+        try
+        {
+            // Get version from assembly
+            var version = typeof(Program).Assembly.GetName().Version;
+            var versionString = version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
+
+            Gtk.gtk_about_dialog_set_program_name(dialog, "Speech to Text");
+            Gtk.gtk_about_dialog_set_version(dialog, versionString);
+            Gtk.gtk_about_dialog_set_comments(dialog,
+                "Voice dictation application for Linux.\n" +
+                "Press CapsLock to start/stop dictation.\n" +
+                "Transcribed text is typed automatically.");
+            Gtk.gtk_about_dialog_set_website(dialog, "https://github.com/Olbrasoft/SpeechToText");
+            Gtk.gtk_about_dialog_set_website_label(dialog, "GitHub Repository");
+
+            // Try to use the app icon
+            var iconPath = Path.Combine(_iconsPath, $"{IconIdle}.svg");
+            if (File.Exists(iconPath))
+            {
+                Gtk.gtk_about_dialog_set_logo_icon_name(dialog, iconPath);
+            }
+
+            _logger.LogDebug("Showing About dialog, version: {Version}", versionString);
+
+            // Run the dialog (blocks until closed)
+            Gtk.gtk_dialog_run(dialog);
+        }
+        finally
+        {
+            // Destroy the dialog
+            Gtk.gtk_widget_destroy(dialog);
+        }
     }
 
     /// <summary>

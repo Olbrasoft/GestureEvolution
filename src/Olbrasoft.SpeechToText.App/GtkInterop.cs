@@ -84,6 +84,37 @@ internal static class Gtk
 
     [DllImport(LibName)]
     public static extern void gtk_menu_item_set_label(IntPtr menu_item, string label);
+
+    // About dialog functions
+    [DllImport(LibName)]
+    public static extern IntPtr gtk_about_dialog_new();
+
+    [DllImport(LibName)]
+    public static extern void gtk_about_dialog_set_program_name(IntPtr about, string name);
+
+    [DllImport(LibName)]
+    public static extern void gtk_about_dialog_set_version(IntPtr about, string version);
+
+    [DllImport(LibName)]
+    public static extern void gtk_about_dialog_set_comments(IntPtr about, string comments);
+
+    [DllImport(LibName)]
+    public static extern void gtk_about_dialog_set_website(IntPtr about, string website);
+
+    [DllImport(LibName)]
+    public static extern void gtk_about_dialog_set_website_label(IntPtr about, string website_label);
+
+    [DllImport(LibName)]
+    public static extern void gtk_about_dialog_set_logo_icon_name(IntPtr about, string icon_name);
+
+    [DllImport(LibName)]
+    public static extern int gtk_dialog_run(IntPtr dialog);
+
+    [DllImport(LibName)]
+    public static extern void gtk_widget_destroy(IntPtr widget);
+
+    [DllImport(LibName)]
+    public static extern void gtk_window_set_title(IntPtr window, string title);
 }
 
 /// <summary>
