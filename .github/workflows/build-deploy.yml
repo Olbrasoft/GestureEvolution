@@ -74,7 +74,18 @@ jobs:
           gzip -k -f dists/stable/main/binary-amd64/Packages
           
           echo "Generating Release file..."
-          apt-ftparchive release dists/stable > dists/stable/Release
+          cat > dists/stable/Release << EOF
+          Origin: Local Applications
+          Label: LocalApps
+          Suite: stable
+          Codename: stable
+          Version: 1.0
+          Architectures: amd64
+          Components: main
+          Description: Local APT repository for SpeechToText
+          EOF
+          # Append checksums from apt-ftparchive
+          apt-ftparchive release dists/stable >> dists/stable/Release
           
           echo "APT repository updated with version $VERSION!"
           echo "Users can now run: sudo apt update && sudo apt upgrade"
