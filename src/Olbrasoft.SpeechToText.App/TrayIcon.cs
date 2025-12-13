@@ -21,7 +21,7 @@ public class TrayIcon : IDisposable
 
     // Icon file names (without path)
     private const string IconIdle = "trigger-speech-to-text";
-    private const string IconRecording = "text-to-speech";
+    private const string IconRecording = "trigger-speech-to-text-recording"; // Orange icon for recording
     private const string IconOff = "text-to-speech-off";
 
     // Animation settings
