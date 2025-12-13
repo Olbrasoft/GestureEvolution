@@ -52,10 +52,13 @@ catch (IOException)
     return;
 }
 
+var version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown";
 Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
 Console.WriteLine("║              SpeechToText Desktop Application                ║");
+Console.WriteLine($"║                      Version: {version,-25}       ║");
 Console.WriteLine("╚══════════════════════════════════════════════════════════════╝");
 Console.WriteLine();
+logger.LogInformation("SpeechToText version {Version} starting", version);
 
 // Create services
 var keyboardMonitorLogger = loggerFactory.CreateLogger<EvdevKeyboardMonitor>();
