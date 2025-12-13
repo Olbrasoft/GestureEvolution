@@ -251,13 +251,12 @@ public class TrayIcon : IDisposable
                 StartAnimationLocked();
                 return;
             }
-            else
-            {
-                StopAnimationLocked();
-            }
 
+            // Always stop animation attempt (safe even if not animating - fixes race condition)
+            StopAnimationLocked();
+
+            // Always set icon based on state (this is the key fix - icon is always set here)
             // Recording = black icon, Transcribing/Idle = white icon
-            // Animation (issue #6) provides visual feedback during transcription
             var iconPath = state switch
             {
                 DictationState.Recording => Path.Combine(_iconsPath, $"{IconRecording}.svg"),
@@ -296,9 +295,7 @@ public class TrayIcon : IDisposable
     private void StopAnimationLocked()
     {
         // Must be called with _stateLock held
-        if (!_isAnimating)
-            return;
-
+        // Always try to stop timer, even if _isAnimating is false (race condition safety)
         if (_animationTimer != 0)
         {
             GLib.g_source_remove(_animationTimer);
@@ -306,13 +303,8 @@ public class TrayIcon : IDisposable
         }
 
         _isAnimating = false;
-
-        // Reset icon to idle state
-        var iconPath = Path.Combine(_iconsPath, $"{IconIdle}.svg");
-        AppIndicator.app_indicator_set_icon_full(_indicator, iconPath, "Idle");
-        _isIconIdle = true;
-
-        _logger.LogDebug("Tray icon animation stopped, icon reset to idle");
+        // Note: Icon is set by UpdateIcon after calling this method
+        _logger.LogDebug("Tray icon animation stopped");
     }
 
     private bool AnimateFrame(IntPtr data)
