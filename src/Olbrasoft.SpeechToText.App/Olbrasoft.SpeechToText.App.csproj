@@ -11,12 +11,10 @@
 
     <!-- Debian package metadata -->
     <PackageId>speech-to-text</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.3</Version>
     <Description>Voice transcription using Whisper AI</Description>
     <Authors>Olbrasoft</Authors>
     <DebMaintainer>Olbrasoft</DebMaintainer>
-    <PostInstallScript>../../debian/postinst</PostInstallScript>
-    <PostRemoveScript>../../debian/postrm</PostRemoveScript>
   </PropertyGroup>
 
   <ItemGroup>

@@ -79,5 +79,10 @@ public enum KeyCode
     /// <summary>
     /// V key.
     /// </summary>
-    V = 47
+    V = 47,
+
+    /// <summary>
+    /// F8 function key.
+    /// </summary>
+    F8 = 66
 }
