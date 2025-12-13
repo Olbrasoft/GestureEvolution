@@ -1,0 +1,79 @@
+name: Build and Deploy .deb
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - '*.csproj'
+      - 'debian/**'
+      - '.github/workflows/build-deploy.yml'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  build-deploy:
+    runs-on: self-hosted
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      
+      - name: Restore dependencies
+        run: dotnet restore
+      
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+      
+      - name: Create .deb package
+        run: |
+          dotnet msbuild src/Olbrasoft.SpeechToText.App/Olbrasoft.SpeechToText.App.csproj \
+            /t:CreateDeb /p:Configuration=Release
+      
+      - name: Find .deb file
+        id: find-deb
+        run: |
+          DEB_FILE=$(find . -name "*.deb" -type f | head -1)
+          echo "Found: $DEB_FILE"
+          echo "deb_file=$DEB_FILE" >> $GITHUB_OUTPUT
+          
+          # Extract version from filename
+          VERSION=$(basename "$DEB_FILE" | sed -E 's/speech-to-text\.([0-9.]+)\.linux-x64\.deb/\1/')
+          echo "Version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Deploy to APT repository
+        run: |
+          DEB_FILE="${{ steps.find-deb.outputs.deb_file }}"
+          APT_REPO="$HOME/apt-repo"
+          
+          echo "Copying $DEB_FILE to $APT_REPO/pool/main/"
+          cp "$DEB_FILE" "$APT_REPO/pool/main/"
+          
+          cd "$APT_REPO"
+          
+          echo "Generating Packages index..."
+          dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
+          gzip -k -f dists/stable/main/binary-amd64/Packages
+          
+          echo "Generating Release file..."
+          apt-ftparchive release dists/stable > dists/stable/Release
+          
+          echo "APT repository updated!"
+          echo "Users can now run: sudo apt update && sudo apt upgrade"
+      
+      - name: Summary
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ steps.find-deb.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package:** ${{ steps.find-deb.outputs.deb_file }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **APT repo updated:** Yes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Run \`sudo apt update && sudo apt upgrade\` to install." >> $GITHUB_STEP_SUMMARY
