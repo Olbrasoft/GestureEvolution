@@ -20,10 +20,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       
-      - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
+      # .NET 10 is already installed system-wide on the self-hosted runner
+      - name: Verify .NET version
+        run: dotnet --version
       
       - name: Restore dependencies
         run: dotnet restore
