@@ -70,6 +70,9 @@ public class DictationService : IDisposable
     /// </summary>
     public async Task StartMonitoringAsync(CancellationToken cancellationToken)
     {
+        _logger.LogDebug("DictationService initialized - TriggerKey: {TriggerKey}, CancelKey: {CancelKey}, TextFilter: {HasFilter}, SoundPlayer: {HasSound}",
+            _triggerKey, _cancelKey, _textFilter != null, _typingSoundPlayer != null);
+
         _keyboardMonitor.KeyReleased += OnKeyReleased;
 
         _logger.LogInformation("Starting keyboard monitor, trigger key: {TriggerKey}", _triggerKey);
