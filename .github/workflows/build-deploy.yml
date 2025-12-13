@@ -24,14 +24,21 @@ jobs:
       - name: Verify .NET version
         run: dotnet --version
       
-      # Auto-increment version using GitHub run number
+      # Auto-increment version using GitHub run number + attempt
       - name: Calculate version
         id: version
         run: |
           # Base version (major.minor) from csproj, patch = GitHub run number
+          # Add run_attempt to ensure unique version on re-runs
           MAJOR=1
           MINOR=0
-          PATCH=${{ github.run_number }}
+          RUN=${{ github.run_number }}
+          ATTEMPT=${{ github.run_attempt }}
+          if [ "$ATTEMPT" -gt 1 ]; then
+            PATCH="${RUN}${ATTEMPT}"
+          else
+            PATCH="$RUN"
+          fi
           VERSION="${MAJOR}.${MINOR}.${PATCH}"
           echo "Version: $VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -61,13 +68,16 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           
           echo "Copying $DEB_FILE to $APT_REPO/pool/main/"
-          cp "$DEB_FILE" "$APT_REPO/pool/main/"
+          cp -f "$DEB_FILE" "$APT_REPO/pool/main/"
           
           cd "$APT_REPO"
           
-          # Remove old versions to keep only the latest
+          # Remove ALL old versions to ensure clean state
           echo "Removing old package versions..."
-          ls pool/main/speech-to-text.*.deb | sort -V | head -n -1 | xargs -r rm -v
+          rm -f pool/main/speech-to-text.*.deb 2>/dev/null || true
+          
+          # Copy the new package again (in case it was deleted)
+          cp -f "$GITHUB_WORKSPACE/$DEB_FILE" "$APT_REPO/pool/main/" 2>/dev/null || cp -f "$DEB_FILE" "$APT_REPO/pool/main/"
           
           echo "Generating Packages index..."
           dpkg-scanpackages pool/main/ > dists/stable/main/binary-amd64/Packages
@@ -92,9 +102,13 @@ jobs:
       
       - name: Auto-upgrade local installation
         run: |
-          echo "Updating APT and upgrading speech-to-text package..."
-          sudo apt update && sudo apt upgrade -y speech-to-text
-          echo "Package upgraded to version ${{ steps.version.outputs.version }}"
+          echo "Updating APT cache..."
+          sudo apt update
+          echo "Reinstalling speech-to-text package to ensure latest version..."
+          sudo apt install --reinstall -y speech-to-text
+          echo "Package installed: version ${{ steps.version.outputs.version }}"
+          # Verify installed version
+          dpkg -l speech-to-text | grep speech-to-text
       
       - name: Summary
         run: |

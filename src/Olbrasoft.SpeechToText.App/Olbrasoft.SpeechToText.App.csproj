@@ -45,11 +45,12 @@
     <CompilerVisibleItemMetadata Include="AdditionalFiles" MetadataName="DBusGeneratorMode" />
   </ItemGroup>
 
-  <!-- D-Bus XML interfaces for StatusNotifierItem -->
+  <!-- D-Bus XML interfaces for StatusNotifierItem and Menu -->
   <ItemGroup>
     <AdditionalFiles Include="DBusXml/org.freedesktop.DBus.xml" DBusGeneratorMode="Proxy" />
     <AdditionalFiles Include="DBusXml/org.kde.StatusNotifierWatcher.xml" DBusGeneratorMode="Proxy" />
     <AdditionalFiles Include="DBusXml/org.kde.StatusNotifierItem.xml" DBusGeneratorMode="Handler" />
+    <AdditionalFiles Include="DBusXml/com.canonical.dbusmenu.xml" DBusGeneratorMode="Handler" />
   </ItemGroup>
 
   <ItemGroup>

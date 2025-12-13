@@ -28,6 +28,8 @@ public class DBusTrayIcon : IDisposable
     private OrgKdeStatusNotifierWatcherProxy? _statusNotifierWatcher;
     private StatusNotifierItemHandler? _sniHandler;
     private PathHandler? _pathHandler;
+    private DBusMenuHandler? _menuHandler;
+    private PathHandler? _menuPathHandler;
     private IDisposable? _serviceWatchDisposable;
 
     private string? _sysTrayServiceName;
@@ -54,6 +56,16 @@ public class DBusTrayIcon : IDisposable
     /// Event fired when the tray icon is clicked.
     /// </summary>
     public event Action? OnClicked;
+
+    /// <summary>
+    /// Event fired when user selects Quit from the context menu.
+    /// </summary>
+    public event Action? OnQuitRequested;
+
+    /// <summary>
+    /// Event fired when user selects About from the context menu.
+    /// </summary>
+    public event Action? OnAboutRequested;
 
     public DBusTrayIcon(ILogger<DBusTrayIcon> logger, string iconsPath, int iconSize = 22)
     {
