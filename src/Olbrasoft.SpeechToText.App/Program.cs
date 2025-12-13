@@ -22,6 +22,7 @@ var cancelKeyName = config.GetValue<string>("Dictation:CancelKey") ?? "Escape";
 var cancelKey = Enum.TryParse<KeyCode>(cancelKeyName, ignoreCase: true, out var ckey) ? ckey : KeyCode.Escape;
 var transcriptionSoundPath = config.GetValue<string?>("Dictation:TranscriptionSoundPath");
 var showTranscriptionAnimation = config.GetValue<bool>("Dictation:ShowTranscriptionAnimation");
+var textFiltersPath = config.GetValue<string?>("Dictation:TextFiltersPath");
 
 // Setup logging
 using var loggerFactory = LoggerFactory.Create(builder =>
@@ -94,6 +95,17 @@ if (!string.IsNullOrWhiteSpace(transcriptionSoundPath))
     typingSoundPlayer = new TypingSoundPlayer(typingSoundLogger, fullSoundPath);
 }
 
+// Create text filter (for removing Whisper hallucinations)
+TextFilter? textFilter = null;
+if (!string.IsNullOrWhiteSpace(textFiltersPath))
+{
+    var fullFiltersPath = Path.IsPathRooted(textFiltersPath)
+        ? textFiltersPath
+        : Path.Combine(AppContext.BaseDirectory, textFiltersPath);
+    var textFilterLogger = loggerFactory.CreateLogger<TextFilter>();
+    textFilter = new TextFilter(textFilterLogger, fullFiltersPath);
+}
+
 var dictationServiceLogger = loggerFactory.CreateLogger<DictationService>();
 var dictationService = new DictationService(
     dictationServiceLogger,
@@ -102,6 +114,7 @@ var dictationService = new DictationService(
     speechTranscriber,
     textTyper,
     typingSoundPlayer,
+    textFilter,
     triggerKey,
     cancelKey);
 

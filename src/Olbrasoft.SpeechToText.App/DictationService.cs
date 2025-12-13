@@ -25,6 +25,7 @@ public class DictationService : IDisposable
     private readonly ISpeechTranscriber _speechTranscriber;
     private readonly ITextTyper _textTyper;
     private readonly TypingSoundPlayer? _typingSoundPlayer;
+    private readonly TextFilter? _textFilter;
     private readonly KeyCode _triggerKey;
     private readonly KeyCode _cancelKey;
 
@@ -49,6 +50,7 @@ public class DictationService : IDisposable
         ISpeechTranscriber speechTranscriber,
         ITextTyper textTyper,
         TypingSoundPlayer? typingSoundPlayer = null,
+        TextFilter? textFilter = null,
         KeyCode triggerKey = KeyCode.CapsLock,
         KeyCode cancelKey = KeyCode.Escape)
     {
@@ -58,6 +60,7 @@ public class DictationService : IDisposable
         _speechTranscriber = speechTranscriber;
         _textTyper = textTyper;
         _typingSoundPlayer = typingSoundPlayer;
+        _textFilter = textFilter;
         _triggerKey = triggerKey;
         _cancelKey = cancelKey;
     }
@@ -189,9 +192,19 @@ public class DictationService : IDisposable
             {
                 _logger.LogInformation("Transcription: {Text}", result.Text);
 
-                // Type the transcribed text
-                await _textTyper.TypeTextAsync(result.Text);
-                _logger.LogInformation("Text typed successfully");
+                // Apply text filters
+                var filteredText = _textFilter?.Apply(result.Text) ?? result.Text;
+
+                if (!string.IsNullOrWhiteSpace(filteredText))
+                {
+                    // Type the transcribed text
+                    await _textTyper.TypeTextAsync(filteredText);
+                    _logger.LogInformation("Text typed successfully");
+                }
+                else
+                {
+                    _logger.LogInformation("Text empty after filtering, nothing to type");
+                }
             }
             else
             {
