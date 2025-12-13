@@ -96,14 +96,17 @@ public class TrayIcon : IDisposable
             }
         }
 
-        // Create app indicator with full path to icon
-        var iconPath = Path.Combine(_iconsPath, $"{IconIdle}.svg");
-        _logger.LogInformation("Initial icon path: {Path}", iconPath);
+        // Create app indicator with icon NAME only (not full path)
+        // Using icon theme path + icon names fixes GNOME Shell icon caching issues
+        _logger.LogInformation("Setting icon theme path: {Path}", _iconsPath);
 
         _indicator = AppIndicator.app_indicator_new(
             "speech-to-text",
-            iconPath,
+            IconIdle,  // Use icon name only, not full path
             AppIndicator.Category.ApplicationStatus);
+        
+        // Set icon theme path AFTER creating indicator - this tells AppIndicator where to find icons
+        AppIndicator.app_indicator_set_icon_theme_path(_indicator, _iconsPath);
 
         if (_indicator == IntPtr.Zero)
         {
@@ -172,9 +175,8 @@ public class TrayIcon : IDisposable
                 _isAnimating = false;
             }
 
-            // Set idle icon
-            var iconPath = Path.Combine(_iconsPath, $"{IconIdle}.svg");
-            AppIndicator.app_indicator_set_icon_full(_indicator, iconPath, "Idle");
+            // Set idle icon (use icon name only, not full path)
+            AppIndicator.app_indicator_set_icon_full(_indicator, IconIdle, "Idle");
             _isIconIdle = true;
 
             _logger.LogDebug("Watchdog: Icon forced to idle state");
@@ -267,14 +269,15 @@ public class TrayIcon : IDisposable
             StopAnimationLocked();
 
             // Always set icon based on state (this is the key fix - icon is always set here)
-            // Recording = black icon, Transcribing/Idle = white icon
-            var iconPath = state switch
+            // Recording = orange icon, Transcribing/Idle = white icon
+            // Use icon NAMES only (not full paths) - icon theme path is set during initialization
+            var iconName = state switch
             {
-                DictationState.Recording => Path.Combine(_iconsPath, $"{IconRecording}.svg"),
-                _ => Path.Combine(_iconsPath, $"{IconIdle}.svg")
+                DictationState.Recording => IconRecording,
+                _ => IconIdle
             };
 
-            AppIndicator.app_indicator_set_icon_full(_indicator, iconPath, state.ToString());
+            AppIndicator.app_indicator_set_icon_full(_indicator, iconName, state.ToString());
             _isIconIdle = (state == DictationState.Idle);
         }
     }
@@ -289,8 +292,7 @@ public class TrayIcon : IDisposable
         if (!File.Exists(firstFrame))
         {
             _logger.LogWarning("Animation icons not found, using static icon");
-            var iconPath = Path.Combine(_iconsPath, $"{IconRecording}.svg");
-            AppIndicator.app_indicator_set_icon_full(_indicator, iconPath, "Transcribing");
+            AppIndicator.app_indicator_set_icon_full(_indicator, IconRecording, "Transcribing");
             _isIconIdle = false;
             return;
         }
@@ -343,7 +345,7 @@ public class TrayIcon : IDisposable
             while (!ct.IsCancellationRequested)
             {
                 var frame = _currentFrame;
-                var iconPath = Path.Combine(_iconsPath, $"{_frameNames[frame]}.svg");
+                var iconName = _frameNames[frame];  // Just icon name, no path
 
                 // Marshal icon update to GTK thread
                 GLib.g_idle_add(_ =>
@@ -351,7 +353,7 @@ public class TrayIcon : IDisposable
                     // Only update if this animation is still current
                     if (_animationGeneration == generation && _isAnimating && !ct.IsCancellationRequested)
                     {
-                        AppIndicator.app_indicator_set_icon_full(_indicator, iconPath, "Transcribing...");
+                        AppIndicator.app_indicator_set_icon_full(_indicator, iconName, "Transcribing...");
                     }
                     return false;
                 }, IntPtr.Zero);
@@ -412,11 +414,13 @@ public class TrayIcon : IDisposable
             Gtk.gtk_about_dialog_set_website(dialog, "https://github.com/Olbrasoft/SpeechToText");
             Gtk.gtk_about_dialog_set_website_label(dialog, "GitHub Repository");
 
-            // Try to use the app icon
+            // Try to use the app icon (logo_icon_name expects icon name, not path)
+            // Note: For About dialog, we still need to check if icon file exists
             var iconPath = Path.Combine(_iconsPath, $"{IconIdle}.svg");
             if (File.Exists(iconPath))
             {
-                Gtk.gtk_about_dialog_set_logo_icon_name(dialog, iconPath);
+                // Set icon theme path for About dialog too, then use icon name
+                Gtk.gtk_about_dialog_set_logo_icon_name(dialog, IconIdle);
             }
 
             _logger.LogDebug("Showing About dialog, version: {Version}", versionString);
