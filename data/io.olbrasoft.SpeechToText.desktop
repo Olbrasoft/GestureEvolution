@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Speech To Text
+GenericName=Dictation Tool
+Comment=Voice transcription using Whisper AI
+Exec=speech-to-text
+Icon=io.olbrasoft.SpeechToText
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Utility;Accessibility;
+Keywords=voice;whisper;dictation;transcription;speech;microphone;
+StartupNotify=false
+X-GNOME-UsesNotifications=false

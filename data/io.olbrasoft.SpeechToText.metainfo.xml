@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.olbrasoft.SpeechToText</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Speech To Text</name>
+  <summary>Voice transcription using Whisper AI</summary>
+
+  <description>
+    <p>
+      Speech To Text is a desktop application for Linux that provides voice-to-text
+      transcription using OpenAI's Whisper AI model. It runs locally on your machine
+      with GPU acceleration support for fast, private transcription.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Press CapsLock to start/stop dictation</li>
+      <li>Real-time voice transcription with Whisper AI</li>
+      <li>GPU acceleration with CUDA support</li>
+      <li>System tray integration with visual feedback</li>
+      <li>Cancel transcription with Escape key</li>
+      <li>Configurable text filters for Whisper hallucinations</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.olbrasoft.SpeechToText.desktop</launchable>
+
+  <url type="homepage">https://github.com/Olbrasoft/SpeechToText</url>
+  <url type="bugtracker">https://github.com/Olbrasoft/SpeechToText/issues</url>
+
+  <developer id="io.olbrasoft">
+    <name>Olbrasoft</name>
+  </developer>
+
+  <provides>
+    <binary>speech-to-text</binary>
+  </provides>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+
+  <supports>
+    <control>keyboard</control>
+  </supports>
+
+  <categories>
+    <category>Utility</category>
+    <category>Audio</category>
+    <category>Accessibility</category>
+  </categories>
+
+  <keywords>
+    <keyword>voice</keyword>
+    <keyword>whisper</keyword>
+    <keyword>dictation</keyword>
+    <keyword>transcription</keyword>
+    <keyword>speech</keyword>
+    <keyword>microphone</keyword>
+    <keyword>AI</keyword>
+  </keywords>
+
+  <releases>
+    <release version="1.0.0" date="2025-12-13">
+      <description>
+        <p>Initial release with core features:</p>
+        <ul>
+          <li>Voice transcription with Whisper AI</li>
+          <li>CapsLock trigger key</li>
+          <li>System tray icon with animation</li>
+          <li>Escape key to cancel transcription</li>
+          <li>Text filtering for hallucinations</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1" />
+</component>
