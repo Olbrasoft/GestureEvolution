@@ -189,10 +189,11 @@ public class TrayIcon : IDisposable
             StopAnimation();
         }
 
+        // Recording = black icon, Transcribing/Idle = white icon
+        // Animation (issue #6) provides visual feedback during transcription
         var iconPath = state switch
         {
             DictationState.Recording => Path.Combine(_iconsPath, $"{IconRecording}.svg"),
-            DictationState.Transcribing => Path.Combine(_iconsPath, $"{IconRecording}.svg"),
             _ => Path.Combine(_iconsPath, $"{IconIdle}.svg")
         };
 
