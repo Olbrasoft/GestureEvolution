@@ -163,14 +163,15 @@ public class DBusAnimatedIcon : IDisposable
             _connection.AddMethodHandler(_pathHandler);
 
             _sysTrayServiceName = $"org.kde.StatusNotifierItem-{pid}-{tid}";
+
+            // Set first frame BEFORE registration so GNOME Shell reads valid pixmap
+            _currentFrameIndex = 0;
+            SetCurrentFrame();
+
             await _dBus!.RequestNameAsync(_sysTrayServiceName, 0);
             await _statusNotifierWatcher.RegisterStatusNotifierItemAsync(_sysTrayServiceName);
 
             _isVisible = true;
-
-            // Set first frame and start animation
-            _currentFrameIndex = 0;
-            SetCurrentFrame();
             _animationTimer = new Timer(AnimationCallback, null, _intervalMs, _intervalMs);
 
             _logger.LogDebug("Animated icon shown as {ServiceName}", _sysTrayServiceName);
