@@ -160,7 +160,7 @@ public class DBusAnimatedIcon : IDisposable
     {
         if (_isDisposed || !_serviceConnected || _isVisible || _statusNotifierWatcher is null)
         {
-            _logger.LogDebug("ShowAsync skipped: disposed={Disposed}, connected={Connected}, visible={Visible}, watcher={HasWatcher}",
+            _logger.LogInformation("ShowAsync skipped: disposed={Disposed}, connected={Connected}, visible={Visible}, watcher={HasWatcher}",
                 _isDisposed, _serviceConnected, _isVisible, _statusNotifierWatcher is not null);
             return;
         }
@@ -189,7 +189,7 @@ public class DBusAnimatedIcon : IDisposable
             _isVisible = true;
             _animationTimer = new Timer(AnimationCallback, null, _intervalMs, _intervalMs);
 
-            _logger.LogDebug("Animated icon shown as {ServiceName}", _sysTrayServiceName);
+            _logger.LogInformation("Animated icon shown as {ServiceName}", _sysTrayServiceName);
         }
         catch (Exception ex)
         {
