@@ -1,9 +1,17 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Olbrasoft.SpeechToText;
 using Olbrasoft.SpeechToText.App;
-using Olbrasoft.SpeechToText.Speech;
-using Olbrasoft.SpeechToText.TextInput;
+
+// Single instance check
+using var instanceLock = SingleInstanceLock.TryAcquire();
+if (!instanceLock.IsAcquired)
+{
+    Console.WriteLine("ERROR: SpeechToText is already running!");
+    Console.WriteLine("Only one instance is allowed.");
+    Environment.Exit(1);
+    return;
+}
 
 // Load configuration
 var config = new ConfigurationBuilder()
@@ -11,18 +19,8 @@ var config = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json", optional: true)
     .Build();
 
-// Get configuration values
-var keyboardDevice = config.GetValue<string?>("Dictation:KeyboardDevice");
-var ggmlModelPath = config.GetValue<string>("Dictation:GgmlModelPath")
-    ?? Path.Combine(AppContext.BaseDirectory, "models", "ggml-medium.bin");
-var whisperLanguage = config.GetValue<string>("Dictation:WhisperLanguage") ?? "cs";
-var triggerKeyName = config.GetValue<string>("Dictation:TriggerKey") ?? "CapsLock";
-var triggerKey = Enum.TryParse<KeyCode>(triggerKeyName, ignoreCase: true, out var key) ? key : KeyCode.CapsLock;
-var cancelKeyName = config.GetValue<string>("Dictation:CancelKey") ?? "Escape";
-var cancelKey = Enum.TryParse<KeyCode>(cancelKeyName, ignoreCase: true, out var ckey) ? ckey : KeyCode.Escape;
-var transcriptionSoundPath = config.GetValue<string?>("Dictation:TranscriptionSoundPath");
-var showTranscriptionAnimation = config.GetValue<bool>("Dictation:ShowTranscriptionAnimation");
-var textFiltersPath = config.GetValue<string?>("Dictation:TextFiltersPath");
+var options = new DictationOptions();
+config.GetSection(DictationOptions.SectionName).Bind(options);
 
 // Setup logging
 using var loggerFactory = LoggerFactory.Create(builder =>
@@ -33,25 +31,7 @@ using var loggerFactory = LoggerFactory.Create(builder =>
 
 var logger = loggerFactory.CreateLogger<Program>();
 
-// Single instance lock
-var lockFilePath = "/tmp/speech-to-text.lock";
-FileStream? lockFile = null;
-
-try
-{
-    lockFile = new FileStream(lockFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-    var pidBytes = System.Text.Encoding.UTF8.GetBytes(Environment.ProcessId.ToString());
-    lockFile.Write(pidBytes, 0, pidBytes.Length);
-    lockFile.Flush();
-}
-catch (IOException)
-{
-    Console.WriteLine("ERROR: SpeechToText is already running!");
-    Console.WriteLine("Only one instance is allowed.");
-    Environment.Exit(1);
-    return;
-}
-
+// Print banner
 var version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown";
 Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
 Console.WriteLine("║              SpeechToText Desktop Application                ║");
@@ -60,99 +40,53 @@ Console.WriteLine("╚═══════════════════�
 Console.WriteLine();
 logger.LogInformation("SpeechToText version {Version} starting", version);
 
-// Create services
-var keyboardMonitorLogger = loggerFactory.CreateLogger<EvdevKeyboardMonitor>();
-var keyboardMonitor = new EvdevKeyboardMonitor(keyboardMonitorLogger, keyboardDevice);
-
-var audioRecorderLogger = loggerFactory.CreateLogger<AlsaAudioRecorder>();
-var audioRecorder = new AlsaAudioRecorder(audioRecorderLogger);
-
-var transcriberLogger = loggerFactory.CreateLogger<WhisperNetTranscriber>();
-ISpeechTranscriber speechTranscriber;
-
-try
+// Validate Whisper model exists
+var modelPath = options.GetFullGgmlModelPath();
+if (!File.Exists(modelPath))
 {
-    speechTranscriber = new WhisperNetTranscriber(transcriberLogger, ggmlModelPath, whisperLanguage);
-    logger.LogInformation("Whisper model loaded: {Path}", ggmlModelPath);
-}
-catch (FileNotFoundException)
-{
-    logger.LogError("Whisper model not found: {Path}", ggmlModelPath);
-    Console.WriteLine($"ERROR: Whisper model not found at: {ggmlModelPath}");
+    logger.LogError("Whisper model not found: {Path}", modelPath);
+    Console.WriteLine($"ERROR: Whisper model not found at: {modelPath}");
     Console.WriteLine("Please download a model and update appsettings.json");
     Environment.Exit(1);
     return;
 }
 
-var textTyper = TextTyperFactory.Create(loggerFactory);
-logger.LogInformation("Text typer: {DisplayServer}", TextTyperFactory.GetDisplayServerName());
+// Find icons path
+var iconsPath = options.IconsPath ?? IconsPathResolver.FindIconsPath(logger);
 
-// Create typing sound player (for audio feedback during transcription)
-TypingSoundPlayer? typingSoundPlayer = null;
-if (!string.IsNullOrWhiteSpace(transcriptionSoundPath))
-{
-    var fullSoundPath = Path.IsPathRooted(transcriptionSoundPath)
-        ? transcriptionSoundPath
-        : Path.Combine(AppContext.BaseDirectory, transcriptionSoundPath);
-    var typingSoundLogger = loggerFactory.CreateLogger<TypingSoundPlayer>();
-    typingSoundPlayer = new TypingSoundPlayer(typingSoundLogger, fullSoundPath);
-}
+// Build services
+var services = new ServiceCollection();
+services.AddSingleton(loggerFactory);
+services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
+services.AddDictationServices(options);
+services.AddTrayServices(options, iconsPath);
 
-// Create text filter (for removing Whisper hallucinations)
-TextFilter? textFilter = null;
-if (!string.IsNullOrWhiteSpace(textFiltersPath))
-{
-    var fullFiltersPath = Path.IsPathRooted(textFiltersPath)
-        ? textFiltersPath
-        : Path.Combine(AppContext.BaseDirectory, textFiltersPath);
-    var textFilterLogger = loggerFactory.CreateLogger<TextFilter>();
-    textFilter = new TextFilter(textFilterLogger, fullFiltersPath);
-}
+using var serviceProvider = services.BuildServiceProvider();
 
-var dictationServiceLogger = loggerFactory.CreateLogger<DictationService>();
-var dictationService = new DictationService(
-    dictationServiceLogger,
-    keyboardMonitor,
-    audioRecorder,
-    speechTranscriber,
-    textTyper,
-    typingSoundPlayer,
-    textFilter,
-    triggerKey,
-    cancelKey);
+// Get services
+var dictationService = serviceProvider.GetRequiredService<DictationService>();
+var dbusTrayIcon = serviceProvider.GetRequiredService<DBusTrayIcon>();
+var animatedIcon = serviceProvider.GetRequiredService<DBusAnimatedIcon>();
 
-// Create D-Bus tray icon (new implementation that bypasses GNOME icon caching)
-var dbusTrayIconLogger = loggerFactory.CreateLogger<DBusTrayIcon>();
-var iconsPath = FindIconsPath(logger);
-var dbusTrayIcon = new DBusTrayIcon(dbusTrayIconLogger, iconsPath, iconSize: 22);
-
-// Create separate animated icon for transcription (second tray icon to bypass GNOME caching)
-var animatedIconLogger = loggerFactory.CreateLogger<DBusAnimatedIcon>();
-var animatedIcon = new DBusAnimatedIcon(animatedIconLogger, iconsPath, new[]
-{
-    "document-white-frame1",
-    "document-white-frame2",
-    "document-white-frame3",
-    "document-white-frame4",
-    "document-white-frame5"
-}, iconSize: 22, intervalMs: 150);
+logger.LogInformation("Whisper model loaded: {Path}", modelPath);
+logger.LogInformation("Text typer: {DisplayServer}", Olbrasoft.SpeechToText.TextInput.TextTyperFactory.GetDisplayServerName());
 
 var cts = new CancellationTokenSource();
 
 try
 {
-    // Initialize D-Bus tray icon
+    // Initialize D-Bus tray icons
     await dbusTrayIcon.InitializeAsync();
     await animatedIcon.InitializeAsync();
-    
+
     if (dbusTrayIcon.IsActive)
     {
         Console.WriteLine("D-Bus tray icon initialized");
-        
+
         // Set initial icon
         dbusTrayIcon.SetIcon("trigger-speech-to-text");
         dbusTrayIcon.SetTooltip("Speech to Text - Idle");
-        
+
         // Handle state changes from DictationService
         dictationService.StateChanged += async (_, state) =>
         {
@@ -175,8 +109,8 @@ try
                     break;
             }
         };
-        
-        // Handle click on tray icon (toggle recording)
+
+        // Handle click on tray icon
         dbusTrayIcon.OnClicked += () =>
         {
             logger.LogInformation("Tray icon clicked");
@@ -194,7 +128,7 @@ try
         dbusTrayIcon.OnAboutRequested += () =>
         {
             logger.LogInformation("About dialog requested");
-            ShowAboutDialog(version);
+            AboutDialog.Show(version);
         };
     }
     else
@@ -219,6 +153,7 @@ try
         }
     });
 
+    var triggerKey = options.GetTriggerKeyCode();
     Console.WriteLine($"Keyboard monitoring started ({triggerKey} to trigger)");
     Console.WriteLine("Press Ctrl+C to exit");
     Console.WriteLine();
@@ -231,7 +166,7 @@ try
         cts.Cancel();
     };
 
-    // Keep the application running (no GTK main loop needed for D-Bus)
+    // Keep the application running
     try
     {
         await Task.Delay(Timeout.Infinite, cts.Token);
@@ -253,91 +188,6 @@ finally
     dictationService.Dispose();
     animatedIcon.Dispose();
     dbusTrayIcon.Dispose();
-    lockFile?.Dispose();
-
-    try
-    {
-        if (File.Exists(lockFilePath))
-            File.Delete(lockFilePath);
-    }
-    catch { }
 }
 
 Console.WriteLine("SpeechToText stopped");
-
-/// <summary>
-/// Shows the About dialog using zenity (GNOME dialog tool).
-/// </summary>
-static void ShowAboutDialog(string version)
-{
-    try
-    {
-        var aboutText = $"Speech to Text\n\n" +
-                        $"Version: {version}\n\n" +
-                        $"Voice transcription using Whisper AI.\n" +
-                        $"Press CapsLock to start dictation.\n\n" +
-                        $"https://github.com/Olbrasoft/SpeechToText";
-
-        var startInfo = new System.Diagnostics.ProcessStartInfo
-        {
-            FileName = "zenity",
-            Arguments = $"--info --title=\"About Speech to Text\" --text=\"{aboutText.Replace("\"", "\\\"")}\" --width=400",
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        System.Diagnostics.Process.Start(startInfo);
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Could not show About dialog: {ex.Message}");
-        Console.WriteLine($"Speech to Text v{version}");
-        Console.WriteLine("https://github.com/Olbrasoft/SpeechToText");
-    }
-}
-
-/// <summary>
-/// Finds the icons directory by checking multiple possible locations.
-/// Works for both installed .deb package and development/debug builds.
-/// </summary>
-static string FindIconsPath(Microsoft.Extensions.Logging.ILogger logger)
-{
-    // List of possible icon paths to check (in order of priority)
-    var possiblePaths = new[]
-    {
-        // 1. Installed via .deb package
-        "/usr/share/speech-to-text/icons",
-
-        // 2. Same directory as executable (build output)
-        Path.Combine(AppContext.BaseDirectory, "icons"),
-
-        // 3. Using assembly location (works better with symlinks)
-        Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location) ?? "", "icons"),
-
-        // 4. Development: assets folder relative to source
-        Path.Combine(AppContext.BaseDirectory, "..", "..", "assets", "icons"),
-
-        // 5. Development: from project root
-        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "assets", "icons")
-    };
-
-    foreach (var path in possiblePaths)
-    {
-        var fullPath = Path.GetFullPath(path);
-        if (Directory.Exists(fullPath))
-        {
-            // Verify at least one expected icon exists
-            var testIcon = Path.Combine(fullPath, "trigger-speech-to-text.svg");
-            if (File.Exists(testIcon))
-            {
-                logger.LogInformation("Icons found at: {Path}", fullPath);
-                return fullPath;
-            }
-        }
-    }
-
-    // Fallback to first path even if it doesn't exist (will show warnings later)
-    var fallback = Path.Combine(AppContext.BaseDirectory, "icons");
-    logger.LogWarning("Icons directory not found, using fallback: {Path}", fallback);
-    return fallback;
-}
