@@ -148,13 +148,19 @@ public class NAudioRecorder : IAudioRecorder
     {
         if (e.BytesRecorded > 0)
         {
-            // Add to recorded data buffer
-            var data = new byte[e.BytesRecorded];
-            Buffer.BlockCopy(e.Buffer, 0, data, 0, e.BytesRecorded);
-            _recordedData.AddRange(data);
+            // Add directly to list using span to avoid intermediate array
+            for (int i = 0; i < e.BytesRecorded; i++)
+            {
+                _recordedData.Add(e.Buffer[i]);
+            }
 
-            // Raise event for streaming scenarios
-            AudioDataAvailable?.Invoke(this, new AudioDataEventArgs(data, DateTime.UtcNow));
+            // Raise event for streaming scenarios (need to copy for event consumers)
+            if (AudioDataAvailable is not null)
+            {
+                var eventData = new byte[e.BytesRecorded];
+                Buffer.BlockCopy(e.Buffer, 0, eventData, 0, e.BytesRecorded);
+                AudioDataAvailable.Invoke(this, new AudioDataEventArgs(eventData, DateTime.UtcNow));
+            }
         }
     }
 

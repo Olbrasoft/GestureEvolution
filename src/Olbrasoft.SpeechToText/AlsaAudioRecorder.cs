@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 
@@ -133,31 +134,39 @@ public class AlsaAudioRecorder : IAudioRecorder
 
     private async Task CaptureAudioLoop(CancellationToken cancellationToken)
     {
+        const int frameSizeInSamples = 1024; // Audio chunk size
+        const int bytesPerSample = 2;        // 16-bit = 2 bytes
+        int frameSize = frameSizeInSamples * bytesPerSample * _channels;
+
+        // Rent buffer from pool instead of allocating
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(frameSize);
+
         try
         {
-            const int frameSizeInSamples = 1024; // Audio chunk size
-            const int bytesPerSample = 2;        // 16-bit = 2 bytes
-            int frameSize = frameSizeInSamples * bytesPerSample * _channels;
-
-            byte[] buffer = new byte[frameSize];
             var stream = _recordProcess!.StandardOutput.BaseStream;
 
             while (_isRecording && !cancellationToken.IsCancellationRequested)
             {
-                int bytesRead = await stream.ReadAsync(buffer, 0, frameSize, cancellationToken);
+                int bytesRead = await stream.ReadAsync(buffer.AsMemory(0, frameSize), cancellationToken);
 
                 if (bytesRead == 0)
                 {
                     break; // End of stream
                 }
 
-                var data = new byte[bytesRead];
-                Buffer.BlockCopy(buffer, 0, data, 0, bytesRead);
+                // Add directly to list using span to avoid intermediate array
+                for (int i = 0; i < bytesRead; i++)
+                {
+                    _recordedData.Add(buffer[i]);
+                }
 
-                _recordedData.AddRange(data);
-
-                // Raise event for streaming scenarios
-                AudioDataAvailable?.Invoke(this, new AudioDataEventArgs(data, DateTime.UtcNow));
+                // Raise event for streaming scenarios (need to copy for event consumers)
+                if (AudioDataAvailable is not null)
+                {
+                    var eventData = new byte[bytesRead];
+                    Buffer.BlockCopy(buffer, 0, eventData, 0, bytesRead);
+                    AudioDataAvailable.Invoke(this, new AudioDataEventArgs(eventData, DateTime.UtcNow));
+                }
             }
         }
         catch (OperationCanceledException)
@@ -167,6 +176,11 @@ public class AlsaAudioRecorder : IAudioRecorder
         catch (Exception ex)
         {
             _logger.LogError(ex, "Audio capture error");
+        }
+        finally
+        {
+            // Always return buffer to pool
+            ArrayPool<byte>.Shared.Return(buffer);
         }
     }
 
