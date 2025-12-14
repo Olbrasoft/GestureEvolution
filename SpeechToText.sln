@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeechToText", "src\SpeechToText\SpeechToText.csproj", "{AE86F209-8F75-4257-9B7C-39E09D4465CE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeechToText.Linux", "src\SpeechToText.Linux\SpeechToText.Linux.csproj", "{AE86F209-8F75-4257-9B7C-39E09D4465CE}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeechToText.Service", "src\SpeechToText.Service\SpeechToText.Service.csproj", "{D7701FA8-FA94-4383-B3F3-C2B744443A0E}"
 EndProject
@@ -13,7 +13,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeechToText.App", "src\Spe
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeechToText.Tests", "tests\SpeechToText.Tests\SpeechToText.Tests.csproj", "{083AAEE2-22C2-44FC-8D34-5464C26D38CD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeechToText.Linux.Tests", "tests\SpeechToText.Linux.Tests\SpeechToText.Linux.Tests.csproj", "{083AAEE2-22C2-44FC-8D34-5464C26D38CD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeechToText.Core", "src\SpeechToText.Core\SpeechToText.Core.csproj", "{9E5A7ECE-3642-48B0-8386-A5CFA210B853}"
 EndProject

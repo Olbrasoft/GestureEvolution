@@ -23,7 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SpeechToText.Core\SpeechToText.Core.csproj" />
-    <ProjectReference Include="..\..\src\SpeechToText\SpeechToText.csproj" />
+    <ProjectReference Include="..\..\src\SpeechToText.Linux\SpeechToText.Linux.csproj" />
     <ProjectReference Include="..\..\src\SpeechToText.Service\SpeechToText.Service.csproj" />
   </ItemGroup>
 

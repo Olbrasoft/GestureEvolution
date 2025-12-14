@@ -4,8 +4,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>Olbrasoft.SpeechToText</RootNamespace>
-    <AssemblyName>Olbrasoft.SpeechToText</AssemblyName>
+    <RootNamespace>Olbrasoft.SpeechToText.Linux</RootNamespace>
+    <AssemblyName>Olbrasoft.SpeechToText.Linux</AssemblyName>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>

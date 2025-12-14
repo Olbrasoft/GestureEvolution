@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SpeechToText.Core\SpeechToText.Core.csproj" />
-    <ProjectReference Include="..\SpeechToText\SpeechToText.csproj" />
+    <ProjectReference Include="..\SpeechToText.Linux\SpeechToText.Linux.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -5,8 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
-    <RootNamespace>Olbrasoft.SpeechToText.Tests</RootNamespace>
-    <AssemblyName>Olbrasoft.SpeechToText.Tests</AssemblyName>
+    <RootNamespace>Olbrasoft.SpeechToText.Linux.Tests</RootNamespace>
+    <AssemblyName>Olbrasoft.SpeechToText.Linux.Tests</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,7 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SpeechToText.Core\SpeechToText.Core.csproj" />
-    <ProjectReference Include="..\..\src\SpeechToText\SpeechToText.csproj" />
+    <ProjectReference Include="..\..\src\SpeechToText.Linux\SpeechToText.Linux.csproj" />
   </ItemGroup>
 
 </Project>

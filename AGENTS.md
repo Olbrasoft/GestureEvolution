@@ -8,7 +8,7 @@ Linux PTT dictation. CapsLock→record→Whisper→type.
 ## Structure
 ```
 src/SpeechToText.Core/       # Interfaces, models
-src/SpeechToText/            # Linux impls
+src/SpeechToText.Linux/      # Linux impls
 src/SpeechToText.App/        # Desktop+tray
 src/SpeechToText.Service/    # ASP.NET+SignalR
 tests/*Tests/                # xUnit+Moq (39 tests)
@@ -18,7 +18,7 @@ Projects=`SpeechToText.*` Namespaces=`Olbrasoft.SpeechToText.*`
 ## Key Files
 Core/Interfaces: IAudioRecorder, IKeyboardMonitor(read), IKeySimulator(write-ISP), ISpeechTranscriber, ITextTyper
 Core/Models: AudioDataEventArgs, KeyCode, KeyEventArgs, TranscriptionResult
-Impls: AlsaAudioRecorder, EvdevKeyboardMonitor, UinputKeySimulator, WhisperNetTranscriber
+Linux: AlsaAudioRecorder, EvdevKeyboardMonitor, UinputKeySimulator, WhisperNetTranscriber
 TextInput: XdotoolTextTyper(X11), DotoolTextTyper(Wayland), TextTyperFactory
 App: DictationService, DBusTrayIcon, SingleInstanceLock
 Service: DictationWorker, PttHub

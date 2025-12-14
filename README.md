@@ -45,7 +45,7 @@ sudo apt install alsa-utils xdotool libgtk-3-dev libayatana-appindicator3-dev
 ```
 Presentation: SpeechToText.App, SpeechToText.Service
 Core:         SpeechToText.Core (interfaces, models)
-Infra:        SpeechToText (ALSA, evdev, Whisper, GTK)
+Infra:        SpeechToText.Linux (ALSA, evdev, Whisper, GTK)
 ```
 
 **Note:** Project names are `SpeechToText.*`, namespaces are `Olbrasoft.SpeechToText.*`.
@@ -55,7 +55,7 @@ Infra:        SpeechToText (ALSA, evdev, Whisper, GTK)
 | Project | Purpose |
 |---------|---------|
 | `SpeechToText.Core` | Platform-agnostic interfaces and models |
-| `SpeechToText` | Linux implementations (ALSA, evdev, Whisper) |
+| `SpeechToText.Linux` | Linux implementations (ALSA, evdev, Whisper) |
 | `SpeechToText.App` | Desktop app with tray icon |
 | `SpeechToText.Service` | ASP.NET Core service + SignalR |
 
