@@ -23,12 +23,14 @@ public interface IButtonAction
 /// </summary>
 public class KeyPressAction : IButtonAction
 {
+    private readonly IKeySimulator _keySimulator;
     private readonly IKeyboardMonitor _keyboardMonitor;
     private readonly KeyCode _keyCode;
     private readonly bool _raiseReleaseEvent;
 
-    public KeyPressAction(IKeyboardMonitor keyboardMonitor, KeyCode keyCode, string name, bool raiseReleaseEvent = true)
+    public KeyPressAction(IKeySimulator keySimulator, IKeyboardMonitor keyboardMonitor, KeyCode keyCode, string name, bool raiseReleaseEvent = true)
     {
+        _keySimulator = keySimulator ?? throw new ArgumentNullException(nameof(keySimulator));
         _keyboardMonitor = keyboardMonitor ?? throw new ArgumentNullException(nameof(keyboardMonitor));
         _keyCode = keyCode;
         Name = name;
@@ -39,7 +41,7 @@ public class KeyPressAction : IButtonAction
 
     public async Task ExecuteAsync()
     {
-        await _keyboardMonitor.SimulateKeyPressAsync(_keyCode);
+        await _keySimulator.SimulateKeyPressAsync(_keyCode);
         if (_raiseReleaseEvent)
         {
             await Task.Delay(MultiClickDetector.KeySimulationDelayMs);
@@ -53,13 +55,13 @@ public class KeyPressAction : IButtonAction
 /// </summary>
 public class KeyComboAction : IButtonAction
 {
-    private readonly IKeyboardMonitor _keyboardMonitor;
+    private readonly IKeySimulator _keySimulator;
     private readonly KeyCode _modifier;
     private readonly KeyCode _key;
 
-    public KeyComboAction(IKeyboardMonitor keyboardMonitor, KeyCode modifier, KeyCode key, string name)
+    public KeyComboAction(IKeySimulator keySimulator, KeyCode modifier, KeyCode key, string name)
     {
-        _keyboardMonitor = keyboardMonitor ?? throw new ArgumentNullException(nameof(keyboardMonitor));
+        _keySimulator = keySimulator ?? throw new ArgumentNullException(nameof(keySimulator));
         _modifier = modifier;
         _key = key;
         Name = name;
@@ -69,7 +71,7 @@ public class KeyComboAction : IButtonAction
 
     public async Task ExecuteAsync()
     {
-        await _keyboardMonitor.SimulateKeyComboAsync(_modifier, _key);
+        await _keySimulator.SimulateKeyComboAsync(_modifier, _key);
     }
 }
 
@@ -78,19 +80,19 @@ public class KeyComboAction : IButtonAction
 /// </summary>
 public class KeyComboWithTwoModifiersAction : IButtonAction
 {
-    private readonly IKeyboardMonitor _keyboardMonitor;
+    private readonly IKeySimulator _keySimulator;
     private readonly KeyCode _modifier1;
     private readonly KeyCode _modifier2;
     private readonly KeyCode _key;
 
     public KeyComboWithTwoModifiersAction(
-        IKeyboardMonitor keyboardMonitor,
+        IKeySimulator keySimulator,
         KeyCode modifier1,
         KeyCode modifier2,
         KeyCode key,
         string name)
     {
-        _keyboardMonitor = keyboardMonitor ?? throw new ArgumentNullException(nameof(keyboardMonitor));
+        _keySimulator = keySimulator ?? throw new ArgumentNullException(nameof(keySimulator));
         _modifier1 = modifier1;
         _modifier2 = modifier2;
         _key = key;
@@ -101,7 +103,7 @@ public class KeyComboWithTwoModifiersAction : IButtonAction
 
     public async Task ExecuteAsync()
     {
-        await _keyboardMonitor.SimulateKeyComboAsync(_modifier1, _modifier2, _key);
+        await _keySimulator.SimulateKeyComboAsync(_modifier1, _modifier2, _key);
     }
 }
 

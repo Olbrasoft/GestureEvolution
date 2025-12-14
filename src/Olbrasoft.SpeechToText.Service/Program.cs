@@ -81,6 +81,9 @@ builder.Services.AddSingleton<IKeyboardMonitor>(sp =>
     return new PttEvdevKeyboardMonitor(logger, keyboardDevice);
 });
 
+// Key simulator (ISP: separated from keyboard monitoring)
+builder.Services.AddSingleton<IKeySimulator, UinputKeySimulator>();
+
 builder.Services.AddSingleton<IAudioRecorder>(sp =>
 {
     var logger = sp.GetRequiredService<ILogger<AlsaAudioRecorder>>();
@@ -118,11 +121,18 @@ builder.Services.AddSingleton(sp =>
 {
     var logger = sp.GetRequiredService<ILogger<BluetoothMouseMonitor>>();
     var keyboardMonitor = sp.GetRequiredService<IKeyboardMonitor>();
-    return new BluetoothMouseMonitor(logger, keyboardMonitor, "BluetoothMouse3600", bluetoothTripleClickCommand);
+    var keySimulator = sp.GetRequiredService<IKeySimulator>();
+    return new BluetoothMouseMonitor(logger, keyboardMonitor, keySimulator, "BluetoothMouse3600", bluetoothTripleClickCommand);
 });
 
 // USB Optical Mouse monitor (secondary push-to-talk trigger)
-builder.Services.AddSingleton<UsbMouseMonitor>();
+builder.Services.AddSingleton(sp =>
+{
+    var logger = sp.GetRequiredService<ILogger<UsbMouseMonitor>>();
+    var keyboardMonitor = sp.GetRequiredService<IKeyboardMonitor>();
+    var keySimulator = sp.GetRequiredService<IKeySimulator>();
+    return new UsbMouseMonitor(logger, keyboardMonitor, keySimulator);
+});
 
 // Register worker
 builder.Services.AddHostedService<DictationWorker>();

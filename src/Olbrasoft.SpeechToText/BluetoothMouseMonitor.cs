@@ -41,15 +41,17 @@ public class BluetoothMouseMonitor : IDisposable
     /// Initializes a new instance of the <see cref="BluetoothMouseMonitor"/> class.
     /// </summary>
     /// <param name="logger">Logger instance.</param>
-    /// <param name="keyboardMonitor">Keyboard monitor for simulating key presses.</param>
+    /// <param name="keyboardMonitor">Keyboard monitor for raising key events.</param>
+    /// <param name="keySimulator">Key simulator for simulating key presses.</param>
     /// <param name="deviceNamePattern">Device name pattern to search for (default: "BluetoothMouse3600").</param>
     /// <param name="leftTripleClickCommand">Command to execute on LEFT triple-click (optional).</param>
     public BluetoothMouseMonitor(
         ILogger<BluetoothMouseMonitor> logger,
         IKeyboardMonitor keyboardMonitor,
+        IKeySimulator keySimulator,
         string deviceNamePattern = "BluetoothMouse3600",
         string? leftTripleClickCommand = null)
-        : this(logger, keyboardMonitor, new InputDeviceDiscovery(), deviceNamePattern, leftTripleClickCommand)
+        : this(logger, keyboardMonitor, keySimulator, new InputDeviceDiscovery(), deviceNamePattern, leftTripleClickCommand)
     {
     }
 
@@ -59,19 +61,21 @@ public class BluetoothMouseMonitor : IDisposable
     internal BluetoothMouseMonitor(
         ILogger<BluetoothMouseMonitor> logger,
         IKeyboardMonitor keyboardMonitor,
+        IKeySimulator keySimulator,
         IInputDeviceDiscovery deviceDiscovery,
         string deviceNamePattern,
         string? leftTripleClickCommand)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _keyboardMonitor = keyboardMonitor ?? throw new ArgumentNullException(nameof(keyboardMonitor));
+        ArgumentNullException.ThrowIfNull(keySimulator);
         _deviceDiscovery = deviceDiscovery ?? throw new ArgumentNullException(nameof(deviceDiscovery));
         _deviceNamePattern = deviceNamePattern;
 
         // Configure LEFT button: Single=CapsLock, Double=None, Triple=OpenCode
         _leftButtonHandler = new ButtonClickHandler(
             "LEFT",
-            new KeyPressAction(_keyboardMonitor, KeyCode.CapsLock, "CapsLock (toggle recording)"),
+            new KeyPressAction(keySimulator, keyboardMonitor, KeyCode.CapsLock, "CapsLock (toggle recording)"),
             NoAction.Instance,
             string.IsNullOrEmpty(leftTripleClickCommand)
                 ? NoAction.Instance
@@ -82,17 +86,17 @@ public class BluetoothMouseMonitor : IDisposable
         // Configure MIDDLE button: Single=Enter, Double=Chrome, Triple=Ctrl+C
         _middleButtonHandler = new ButtonClickHandler(
             "MIDDLE",
-            new KeyPressAction(_keyboardMonitor, KeyCode.Enter, "Enter"),
+            new KeyPressAction(keySimulator, keyboardMonitor, KeyCode.Enter, "Enter"),
             new ShellCommandAction("~/.local/bin/focus-chrome.sh", "Focus Chrome"),
-            new KeyComboAction(_keyboardMonitor, KeyCode.LeftControl, KeyCode.C, "Ctrl+C (copy)"),
+            new KeyComboAction(keySimulator, KeyCode.LeftControl, KeyCode.C, "Ctrl+C (copy)"),
             logger,
             maxClickCount: 3);
 
         // Configure RIGHT button: Single=ESC, Double=Ctrl+Shift+V, Triple=Claude
         _rightButtonHandler = new ButtonClickHandler(
             "RIGHT",
-            new KeyPressAction(_keyboardMonitor, KeyCode.Escape, "ESC (cancel transcription)", raiseReleaseEvent: true),
-            new KeyComboWithTwoModifiersAction(_keyboardMonitor, KeyCode.LeftControl, KeyCode.LeftShift, KeyCode.V, "Ctrl+Shift+V (terminal paste)"),
+            new KeyPressAction(keySimulator, keyboardMonitor, KeyCode.Escape, "ESC (cancel transcription)", raiseReleaseEvent: true),
+            new KeyComboWithTwoModifiersAction(keySimulator, KeyCode.LeftControl, KeyCode.LeftShift, KeyCode.V, "Ctrl+Shift+V (terminal paste)"),
             new ShellCommandAction("~/.local/bin/focus-claude.sh", "Focus Claude"),
             logger,
             maxClickCount: 3);

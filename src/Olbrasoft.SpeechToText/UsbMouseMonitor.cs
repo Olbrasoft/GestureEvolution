@@ -46,13 +46,15 @@ public class UsbMouseMonitor : IDisposable
     /// Initializes a new instance of the <see cref="UsbMouseMonitor"/> class.
     /// </summary>
     /// <param name="logger">Logger instance.</param>
-    /// <param name="keyboardMonitor">Keyboard monitor for simulating key presses.</param>
+    /// <param name="keyboardMonitor">Keyboard monitor for raising key events.</param>
+    /// <param name="keySimulator">Key simulator for simulating key presses.</param>
     /// <param name="deviceNamePattern">Device name pattern to search for (default: "USB Optical Mouse").</param>
     public UsbMouseMonitor(
         ILogger<UsbMouseMonitor> logger,
         IKeyboardMonitor keyboardMonitor,
+        IKeySimulator keySimulator,
         string deviceNamePattern = "USB Optical Mouse")
-        : this(logger, keyboardMonitor, new InputDeviceDiscovery(), deviceNamePattern, [DefaultExcludedDevice])
+        : this(logger, keyboardMonitor, keySimulator, new InputDeviceDiscovery(), deviceNamePattern, [DefaultExcludedDevice])
     {
     }
 
@@ -62,12 +64,14 @@ public class UsbMouseMonitor : IDisposable
     internal UsbMouseMonitor(
         ILogger<UsbMouseMonitor> logger,
         IKeyboardMonitor keyboardMonitor,
+        IKeySimulator keySimulator,
         IInputDeviceDiscovery deviceDiscovery,
         string deviceNamePattern,
         string[] excludedDevices)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _keyboardMonitor = keyboardMonitor ?? throw new ArgumentNullException(nameof(keyboardMonitor));
+        ArgumentNullException.ThrowIfNull(keySimulator);
         _deviceDiscovery = deviceDiscovery ?? throw new ArgumentNullException(nameof(deviceDiscovery));
         _deviceNamePattern = deviceNamePattern;
         _excludedDevices = excludedDevices;
@@ -75,8 +79,8 @@ public class UsbMouseMonitor : IDisposable
         // Configure LEFT button: Single=CapsLock, Double=ESC (no triple-click)
         _leftButtonHandler = new ButtonClickHandler(
             "USB LEFT",
-            new KeyPressAction(_keyboardMonitor, KeyCode.CapsLock, "CapsLock (toggle recording)"),
-            new KeyPressAction(_keyboardMonitor, KeyCode.Escape, "ESC (cancel transcription)", raiseReleaseEvent: true),
+            new KeyPressAction(keySimulator, keyboardMonitor, KeyCode.CapsLock, "CapsLock (toggle recording)"),
+            new KeyPressAction(keySimulator, keyboardMonitor, KeyCode.Escape, "ESC (cancel transcription)", raiseReleaseEvent: true),
             NoAction.Instance, // No triple-click action for USB mouse
             logger,
             maxClickCount: 2);
@@ -85,8 +89,8 @@ public class UsbMouseMonitor : IDisposable
         _rightButtonHandler = new ButtonClickHandler(
             "USB RIGHT",
             NoAction.Instance,
-            new KeyComboWithTwoModifiersAction(_keyboardMonitor, KeyCode.LeftControl, KeyCode.LeftShift, KeyCode.V, "Ctrl+Shift+V (terminal paste)"),
-            new KeyComboAction(_keyboardMonitor, KeyCode.LeftControl, KeyCode.C, "Ctrl+C (copy)"),
+            new KeyComboWithTwoModifiersAction(keySimulator, KeyCode.LeftControl, KeyCode.LeftShift, KeyCode.V, "Ctrl+Shift+V (terminal paste)"),
+            new KeyComboAction(keySimulator, KeyCode.LeftControl, KeyCode.C, "Ctrl+C (copy)"),
             logger,
             maxClickCount: 3);
     }

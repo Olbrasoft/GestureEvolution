@@ -6,6 +6,7 @@ namespace Olbrasoft.SpeechToText;
 /// <summary>
 /// Linux evdev-based keyboard monitor.
 /// Reads keyboard events directly from /dev/input/eventX devices.
+/// Key simulation is handled by UinputKeySimulator (ISP).
 /// </summary>
 public class EvdevKeyboardMonitor : IKeyboardMonitor
 {
@@ -28,8 +29,6 @@ public class EvdevKeyboardMonitor : IKeyboardMonitor
     private const ushort EV_KEY = 1;  // Key press/release event type
     private const int KEY_PRESS = 1;
     private const int KEY_RELEASE = 0;
-
-
 
     /// <summary>
     /// Initializes a new instance of the <see cref="EvdevKeyboardMonitor"/> class.
@@ -88,9 +87,6 @@ public class EvdevKeyboardMonitor : IKeyboardMonitor
 
             // Start monitoring in background
             _monitorTask = Task.Run(() => MonitorEventsAsync(_cts.Token), _cts.Token);
-
-            // Don't await - let it run in background
-            // await _monitorTask;
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -152,7 +148,7 @@ public class EvdevKeyboardMonitor : IKeyboardMonitor
         try
         {
             _logger.LogInformation("Starting event monitoring loop (synchronous read)");
-            
+
             while (_isMonitoring && !cancellationToken.IsCancellationRequested)
             {
                 // Use synchronous Read for device files (blocking read)
@@ -178,7 +174,7 @@ public class EvdevKeyboardMonitor : IKeyboardMonitor
         {
             _logger.LogError(ex, "Error reading keyboard events");
         }
-        
+
         _logger.LogInformation("Event monitoring loop ended");
         return Task.CompletedTask;
     }
@@ -245,7 +241,7 @@ public class EvdevKeyboardMonitor : IKeyboardMonitor
                 .Where(f => !f.Contains("mouse", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(f => f) // Consistent ordering
                 .ToArray();
-            
+
             if (kbdDevices.Length > 0)
             {
                 return kbdDevices[0];
@@ -296,8 +292,8 @@ public class EvdevKeyboardMonitor : IKeyboardMonitor
 
                 // Look for keyboard with LED support (real keyboards have "leds" handler)
                 // Skip devices that are mice or have "Mouse" in name
-                if (handlers != null && 
-                    handlers.Contains("kbd") && 
+                if (handlers != null &&
+                    handlers.Contains("kbd") &&
                     handlers.Contains("leds") &&
                     (name == null || !name.Contains("Mouse", StringComparison.OrdinalIgnoreCase)))
                 {
@@ -372,368 +368,11 @@ public class EvdevKeyboardMonitor : IKeyboardMonitor
     }
 
     /// <inheritdoc/>
-    public async Task SimulateKeyPressAsync(KeyCode key)
-    {
-        try
-        {
-            _logger.LogInformation("Simulating key press: {Key}", key);
-            
-            // Use uinput to simulate key press
-            // We need to create a virtual input device
-            const string uinputPath = "/dev/uinput";
-            
-            if (!File.Exists(uinputPath))
-            {
-                _logger.LogError("uinput device not found at {Path}", uinputPath);
-                return;
-            }
-
-            // Use evemu-event or direct uinput - for simplicity, use a subprocess
-            // This is a pragmatic solution that works on Wayland
-            var keyCode = (int)key;
-            
-            // Create uinput device, send key, destroy device
-            // Using libevdev-based approach via shell
-            var script = $@"
-import os
-import time
-import struct
-import fcntl
-
-# uinput constants
-UI_SET_EVBIT = 0x40045564
-UI_SET_KEYBIT = 0x40045565
-UI_DEV_CREATE = 0x5501
-UI_DEV_DESTROY = 0x5502
-EV_KEY = 0x01
-EV_SYN = 0x00
-SYN_REPORT = 0x00
-
-# Open uinput
-fd = os.open('/dev/uinput', os.O_WRONLY | os.O_NONBLOCK)
-
-# Enable EV_KEY
-fcntl.ioctl(fd, UI_SET_EVBIT, EV_KEY)
-
-# Enable the specific key
-fcntl.ioctl(fd, UI_SET_KEYBIT, {keyCode})
-
-# uinput_user_dev structure (legacy)
-# char name[80], id (bustype, vendor, product, version = 4x uint16), ff_effects_max, absmax[64], absmin[64], absfuzz[64], absflat[64]
-name = b'virtual-assistant-kbd'
-name = name + b'\x00' * (80 - len(name))
-user_dev = name + struct.pack('<HHHHI', 0x03, 0x1234, 0x5678, 0x0001, 0)  # BUS_VIRTUAL
-user_dev = user_dev + b'\x00' * (4 * 64 * 4)  # abs arrays
-
-os.write(fd, user_dev)
-fcntl.ioctl(fd, UI_DEV_CREATE)
-
-time.sleep(0.1)  # Let device settle
-
-# Send key press
-def send_event(fd, ev_type, code, value):
-    event = struct.pack('<QQHHi', 0, 0, ev_type, code, value)
-    os.write(fd, event)
-
-send_event(fd, EV_KEY, {keyCode}, 1)  # Press
-send_event(fd, EV_SYN, SYN_REPORT, 0)
-
-time.sleep(0.05)
-
-send_event(fd, EV_KEY, {keyCode}, 0)  # Release
-send_event(fd, EV_SYN, SYN_REPORT, 0)
-
-time.sleep(0.1)
-
-fcntl.ioctl(fd, UI_DEV_DESTROY)
-os.close(fd)
-";
-            
-            var processInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "python3",
-                Arguments = $"-c \"{script.Replace("\"", "\\\"")}\"",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-            
-            using var process = System.Diagnostics.Process.Start(processInfo);
-            if (process != null)
-            {
-                await process.WaitForExitAsync();
-                var stderr = await process.StandardError.ReadToEndAsync();
-                
-                if (process.ExitCode != 0)
-                {
-                    _logger.LogError("Failed to simulate key press. Exit code: {ExitCode}, Error: {Error}", 
-                        process.ExitCode, stderr);
-                }
-                else
-                {
-                    _logger.LogInformation("Successfully simulated key press: {Key}", key);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error simulating key press: {Key}", key);
-        }
-    }
-
-    /// <inheritdoc/>
     public void RaiseKeyReleasedEvent(KeyCode key)
     {
         var eventArgs = new KeyEventArgs(key, (ushort)key, DateTime.UtcNow);
         _logger.LogInformation("Raising programmatic KeyReleased event: {Key}", key);
         KeyReleased?.Invoke(this, eventArgs);
-    }
-
-    /// <inheritdoc/>
-    public async Task SimulateKeyComboAsync(KeyCode modifier, KeyCode key)
-    {
-        try
-        {
-            _logger.LogInformation("Simulating key combo: {Modifier}+{Key}", modifier, key);
-
-            const string uinputPath = "/dev/uinput";
-
-            if (!File.Exists(uinputPath))
-            {
-                _logger.LogError("uinput device not found at {Path}", uinputPath);
-                return;
-            }
-
-            var modifierCode = (int)modifier;
-            var keyCode = (int)key;
-
-            // Python script to simulate key combo (e.g., Ctrl+C)
-            var script = $@"
-import os
-import time
-import struct
-import fcntl
-
-# uinput constants
-UI_SET_EVBIT = 0x40045564
-UI_SET_KEYBIT = 0x40045565
-UI_DEV_CREATE = 0x5501
-UI_DEV_DESTROY = 0x5502
-EV_KEY = 0x01
-EV_SYN = 0x00
-SYN_REPORT = 0x00
-
-# Open uinput
-fd = os.open('/dev/uinput', os.O_WRONLY | os.O_NONBLOCK)
-
-# Enable EV_KEY
-fcntl.ioctl(fd, UI_SET_EVBIT, EV_KEY)
-
-# Enable both keys
-fcntl.ioctl(fd, UI_SET_KEYBIT, {modifierCode})
-fcntl.ioctl(fd, UI_SET_KEYBIT, {keyCode})
-
-# Create uinput device
-name = b'virtual-assistant-kbd'
-name = name + b'\x00' * (80 - len(name))
-user_dev = name + struct.pack('<HHHHI', 0x03, 0x1234, 0x5678, 0x0001, 0)
-user_dev = user_dev + b'\x00' * (4 * 64 * 4)
-
-os.write(fd, user_dev)
-fcntl.ioctl(fd, UI_DEV_CREATE)
-
-time.sleep(0.1)
-
-def send_event(fd, ev_type, code, value):
-    event = struct.pack('<QQHHi', 0, 0, ev_type, code, value)
-    os.write(fd, event)
-
-# Press modifier
-send_event(fd, EV_KEY, {modifierCode}, 1)
-send_event(fd, EV_SYN, SYN_REPORT, 0)
-time.sleep(0.02)
-
-# Press key
-send_event(fd, EV_KEY, {keyCode}, 1)
-send_event(fd, EV_SYN, SYN_REPORT, 0)
-time.sleep(0.05)
-
-# Release key
-send_event(fd, EV_KEY, {keyCode}, 0)
-send_event(fd, EV_SYN, SYN_REPORT, 0)
-time.sleep(0.02)
-
-# Release modifier
-send_event(fd, EV_KEY, {modifierCode}, 0)
-send_event(fd, EV_SYN, SYN_REPORT, 0)
-
-time.sleep(0.1)
-
-fcntl.ioctl(fd, UI_DEV_DESTROY)
-os.close(fd)
-";
-
-            var processInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "python3",
-                Arguments = $"-c \"{script.Replace("\"", "\\\"")}\"",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-
-            using var process = System.Diagnostics.Process.Start(processInfo);
-            if (process != null)
-            {
-                await process.WaitForExitAsync();
-                var stderr = await process.StandardError.ReadToEndAsync();
-
-                if (process.ExitCode != 0)
-                {
-                    _logger.LogError("Failed to simulate key combo. Exit code: {ExitCode}, Error: {Error}",
-                        process.ExitCode, stderr);
-                }
-                else
-                {
-                    _logger.LogInformation("Successfully simulated key combo: {Modifier}+{Key}", modifier, key);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error simulating key combo: {Modifier}+{Key}", modifier, key);
-        }
-    }
-
-    /// <inheritdoc/>
-    public async Task SimulateKeyComboAsync(KeyCode modifier1, KeyCode modifier2, KeyCode key)
-    {
-        try
-        {
-            _logger.LogInformation("Simulating key combo: {Modifier1}+{Modifier2}+{Key}", modifier1, modifier2, key);
-
-            const string uinputPath = "/dev/uinput";
-
-            if (!File.Exists(uinputPath))
-            {
-                _logger.LogError("uinput device not found at {Path}", uinputPath);
-                return;
-            }
-
-            var mod1Code = (int)modifier1;
-            var mod2Code = (int)modifier2;
-            var keyCode = (int)key;
-
-            // Python script to simulate key combo with two modifiers (e.g., Ctrl+Shift+V)
-            var script = $@"
-import os
-import time
-import struct
-import fcntl
-
-# uinput constants
-UI_SET_EVBIT = 0x40045564
-UI_SET_KEYBIT = 0x40045565
-UI_DEV_CREATE = 0x5501
-UI_DEV_DESTROY = 0x5502
-EV_KEY = 0x01
-EV_SYN = 0x00
-SYN_REPORT = 0x00
-
-# Open uinput
-fd = os.open('/dev/uinput', os.O_WRONLY | os.O_NONBLOCK)
-
-# Enable EV_KEY
-fcntl.ioctl(fd, UI_SET_EVBIT, EV_KEY)
-
-# Enable all keys
-fcntl.ioctl(fd, UI_SET_KEYBIT, {mod1Code})
-fcntl.ioctl(fd, UI_SET_KEYBIT, {mod2Code})
-fcntl.ioctl(fd, UI_SET_KEYBIT, {keyCode})
-
-# Create uinput device
-name = b'virtual-assistant-kbd'
-name = name + b'\x00' * (80 - len(name))
-user_dev = name + struct.pack('<HHHHI', 0x03, 0x1234, 0x5678, 0x0001, 0)
-user_dev = user_dev + b'\x00' * (4 * 64 * 4)
-
-os.write(fd, user_dev)
-fcntl.ioctl(fd, UI_DEV_CREATE)
-
-time.sleep(0.1)
-
-def send_event(fd, ev_type, code, value):
-    event = struct.pack('<QQHHi', 0, 0, ev_type, code, value)
-    os.write(fd, event)
-
-# Press modifier1
-send_event(fd, EV_KEY, {mod1Code}, 1)
-send_event(fd, EV_SYN, SYN_REPORT, 0)
-time.sleep(0.02)
-
-# Press modifier2
-send_event(fd, EV_KEY, {mod2Code}, 1)
-send_event(fd, EV_SYN, SYN_REPORT, 0)
-time.sleep(0.02)
-
-# Press key
-send_event(fd, EV_KEY, {keyCode}, 1)
-send_event(fd, EV_SYN, SYN_REPORT, 0)
-time.sleep(0.05)
-
-# Release key
-send_event(fd, EV_KEY, {keyCode}, 0)
-send_event(fd, EV_SYN, SYN_REPORT, 0)
-time.sleep(0.02)
-
-# Release modifier2
-send_event(fd, EV_KEY, {mod2Code}, 0)
-send_event(fd, EV_SYN, SYN_REPORT, 0)
-time.sleep(0.02)
-
-# Release modifier1
-send_event(fd, EV_KEY, {mod1Code}, 0)
-send_event(fd, EV_SYN, SYN_REPORT, 0)
-
-time.sleep(0.1)
-
-fcntl.ioctl(fd, UI_DEV_DESTROY)
-os.close(fd)
-";
-
-            var processInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "python3",
-                Arguments = $"-c \"{script.Replace("\"", "\\\"")}\"",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-
-            using var process = System.Diagnostics.Process.Start(processInfo);
-            if (process != null)
-            {
-                await process.WaitForExitAsync();
-                var stderr = await process.StandardError.ReadToEndAsync();
-
-                if (process.ExitCode != 0)
-                {
-                    _logger.LogError("Failed to simulate key combo. Exit code: {ExitCode}, Error: {Error}",
-                        process.ExitCode, stderr);
-                }
-                else
-                {
-                    _logger.LogInformation("Successfully simulated key combo: {Modifier1}+{Modifier2}+{Key}", modifier1, modifier2, key);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error simulating key combo: {Modifier1}+{Modifier2}+{Key}", modifier1, modifier2, key);
-        }
     }
 
     /// <inheritdoc/>

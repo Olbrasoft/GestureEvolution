@@ -1,7 +1,8 @@
 namespace Olbrasoft.SpeechToText;
 
 /// <summary>
-/// Interface for monitoring keyboard events (cross-platform abstraction).
+/// Interface for monitoring keyboard events (ISP: read-only operations).
+/// Key simulation is handled by IKeySimulator.
 /// </summary>
 public interface IKeyboardMonitor : IDisposable
 {
@@ -44,34 +45,10 @@ public interface IKeyboardMonitor : IDisposable
     bool IsScrollLockOn();
 
     /// <summary>
-    /// Simulates a key press and release using uinput.
-    /// Used to toggle ScrollLock from software (e.g., tray menu click).
-    /// </summary>
-    /// <param name="key">The key to simulate.</param>
-    Task SimulateKeyPressAsync(KeyCode key);
-
-    /// <summary>
     /// Programmatically raises a KeyReleased event without actually pressing the key.
     /// Used by BluetoothMouseMonitor to trigger DictationWorker without physical key press.
     /// This does NOT change LED state - only raises the event for subscribers.
     /// </summary>
     /// <param name="key">The key to raise event for.</param>
     void RaiseKeyReleasedEvent(KeyCode key);
-
-    /// <summary>
-    /// Simulates a key combination (modifier + key) using uinput.
-    /// Used for keyboard shortcuts like Ctrl+C, Ctrl+V, etc.
-    /// </summary>
-    /// <param name="modifier">The modifier key (e.g., LeftControl, LeftShift).</param>
-    /// <param name="key">The key to press with the modifier.</param>
-    Task SimulateKeyComboAsync(KeyCode modifier, KeyCode key);
-
-    /// <summary>
-    /// Simulates a key combination with two modifiers (modifier1 + modifier2 + key) using uinput.
-    /// Used for keyboard shortcuts like Ctrl+Shift+V.
-    /// </summary>
-    /// <param name="modifier1">The first modifier key (e.g., LeftControl).</param>
-    /// <param name="modifier2">The second modifier key (e.g., LeftShift).</param>
-    /// <param name="key">The key to press with the modifiers.</param>
-    Task SimulateKeyComboAsync(KeyCode modifier1, KeyCode modifier2, KeyCode key);
 }
