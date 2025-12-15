@@ -97,14 +97,19 @@ builder.Services.AddSingleton<ISpeechTranscriber>(sp =>
     return new WhisperNetTranscriber(logger, ggmlModelPath, whisperLanguage);
 });
 
+// Environment provider for display server detection
+builder.Services.AddSingleton<IEnvironmentProvider, SystemEnvironmentProvider>();
+
+// Text typer factory (injectable, testable)
+builder.Services.AddSingleton<ITextTyperFactory, TextTyperFactory>();
+
 // Auto-detect display server (X11/Wayland) and use appropriate text typer
 builder.Services.AddSingleton<ITextTyper>(sp =>
 {
-    var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+    var factory = sp.GetRequiredService<ITextTyperFactory>();
     var logger = sp.GetRequiredService<ILogger<Program>>();
-    var displayServer = TextTyperFactory.GetDisplayServerName();
-    logger.LogInformation("Detected display server: {DisplayServer}", displayServer);
-    return TextTyperFactory.Create(loggerFactory);
+    logger.LogInformation("Detected display server: {DisplayServer}", factory.GetDisplayServerName());
+    return factory.Create();
 });
 
 // Typing sound player for transcription feedback

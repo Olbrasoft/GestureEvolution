@@ -40,11 +40,17 @@ public static class ServiceCollectionExtensions
             return new WhisperNetTranscriber(logger, modelPath, options.WhisperLanguage);
         });
 
+        // Environment provider for display server detection
+        services.AddSingleton<IEnvironmentProvider, SystemEnvironmentProvider>();
+
+        // Text typer factory (injectable, testable)
+        services.AddSingleton<ITextTyperFactory, TextTyperFactory>();
+
         // Text typer (auto-detect display server)
         services.AddSingleton<ITextTyper>(sp =>
         {
-            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-            return TextTyperFactory.Create(loggerFactory);
+            var factory = sp.GetRequiredService<ITextTyperFactory>();
+            return factory.Create();
         });
 
         // Optional: Typing sound player

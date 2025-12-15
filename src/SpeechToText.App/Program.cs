@@ -69,7 +69,8 @@ var dbusTrayIcon = serviceProvider.GetRequiredService<DBusTrayIcon>();
 var animatedIcon = serviceProvider.GetRequiredService<DBusAnimatedIcon>();
 
 logger.LogInformation("Whisper model loaded: {Path}", modelPath);
-logger.LogInformation("Text typer: {DisplayServer}", Olbrasoft.SpeechToText.TextInput.TextTyperFactory.GetDisplayServerName());
+var textTyperFactory = serviceProvider.GetRequiredService<Olbrasoft.SpeechToText.TextInput.ITextTyperFactory>();
+logger.LogInformation("Text typer: {DisplayServer}", textTyperFactory.GetDisplayServerName());
 
 var cts = new CancellationTokenSource();
 

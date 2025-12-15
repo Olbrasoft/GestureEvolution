@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Moq;
+using Olbrasoft.SpeechToText.Core.Interfaces;
 using Olbrasoft.SpeechToText.TextInput;
 
 namespace Olbrasoft.SpeechToText.Linux.Tests.TextInput;
@@ -7,108 +8,231 @@ namespace Olbrasoft.SpeechToText.Linux.Tests.TextInput;
 public class TextTyperFactoryTests
 {
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
+    private readonly Mock<IEnvironmentProvider> _environmentMock;
 
     public TextTyperFactoryTests()
     {
         _loggerFactoryMock = new Mock<ILoggerFactory>();
+        _environmentMock = new Mock<IEnvironmentProvider>();
 
-        // Setup loggers for all text typer types
+        // Setup logger factory to return mock loggers
         _loggerFactoryMock
-            .Setup(x => x.CreateLogger(It.Is<string>(s => s.Contains("XdotoolTextTyper"))))
-            .Returns(Mock.Of<ILogger<XdotoolTextTyper>>());
-        _loggerFactoryMock
-            .Setup(x => x.CreateLogger(It.Is<string>(s => s.Contains("DotoolTextTyper"))))
-            .Returns(Mock.Of<ILogger<DotoolTextTyper>>());
+            .Setup(f => f.CreateLogger(It.IsAny<string>()))
+            .Returns(Mock.Of<ILogger>());
     }
 
     [Fact]
-    public void Create_WithNullLoggerFactory_ShouldThrowArgumentNullException()
+    public void Constructor_WithNullLoggerFactory_ShouldThrowArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => TextTyperFactory.Create(null!));
+        Assert.Throws<ArgumentNullException>(() =>
+            new TextTyperFactory(null!, _environmentMock.Object));
     }
 
     [Fact]
-    public void Create_WithValidLoggerFactory_ShouldReturnITextTyper()
+    public void Constructor_WithNullEnvironmentProvider_ShouldThrowArgumentNullException()
     {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() =>
+            new TextTyperFactory(_loggerFactoryMock.Object, null!));
+    }
+
+    [Theory]
+    [InlineData("wayland", true)]
+    [InlineData("WAYLAND", true)]
+    [InlineData("Wayland", true)]
+    [InlineData("x11", false)]
+    [InlineData("X11", false)]
+    [InlineData("tty", false)]
+    public void IsWayland_WithXdgSessionType_ShouldReturnExpectedValue(string sessionType, bool expected)
+    {
+        // Arrange
+        _environmentMock.Setup(e => e.GetEnvironmentVariable("XDG_SESSION_TYPE"))
+            .Returns(sessionType);
+
+        var factory = new TextTyperFactory(_loggerFactoryMock.Object, _environmentMock.Object);
+
         // Act
-        var typer = TextTyperFactory.Create(_loggerFactoryMock.Object);
+        var result = factory.IsWayland();
 
         // Assert
-        Assert.NotNull(typer);
-        Assert.True(typer is XdotoolTextTyper || typer is DotoolTextTyper);
+        Assert.Equal(expected, result);
     }
 
     [Fact]
-    public void IsWayland_ShouldReturnBooleanWithoutException()
+    public void IsWayland_WithWaylandDisplay_ShouldReturnTrue()
     {
+        // Arrange
+        _environmentMock.Setup(e => e.GetEnvironmentVariable("XDG_SESSION_TYPE"))
+            .Returns((string?)null);
+        _environmentMock.Setup(e => e.GetEnvironmentVariable("WAYLAND_DISPLAY"))
+            .Returns("wayland-0");
+
+        var factory = new TextTyperFactory(_loggerFactoryMock.Object, _environmentMock.Object);
+
         // Act
-        var exception = Record.Exception(() => TextTyperFactory.IsWayland());
+        var result = factory.IsWayland();
 
         // Assert
-        Assert.Null(exception);
+        Assert.True(result);
     }
 
     [Fact]
-    public void GetDisplayServerName_ShouldReturnNonEmptyString()
+    public void IsWayland_WithDisplayOnly_ShouldReturnFalse()
     {
+        // Arrange
+        _environmentMock.Setup(e => e.GetEnvironmentVariable("XDG_SESSION_TYPE"))
+            .Returns((string?)null);
+        _environmentMock.Setup(e => e.GetEnvironmentVariable("WAYLAND_DISPLAY"))
+            .Returns((string?)null);
+        _environmentMock.Setup(e => e.GetEnvironmentVariable("DISPLAY"))
+            .Returns(":0");
+
+        var factory = new TextTyperFactory(_loggerFactoryMock.Object, _environmentMock.Object);
+
         // Act
-        var displayServerName = TextTyperFactory.GetDisplayServerName();
+        var result = factory.IsWayland();
 
         // Assert
-        Assert.NotNull(displayServerName);
-        Assert.NotEmpty(displayServerName);
+        Assert.False(result);
     }
 
     [Fact]
-    public void GetDisplayServerName_ShouldReturnKnownValues()
+    public void IsWayland_WithNoEnvironmentVariables_ShouldReturnTrue()
     {
+        // Arrange - default to Wayland for modern systems
+        _environmentMock.Setup(e => e.GetEnvironmentVariable(It.IsAny<string>()))
+            .Returns((string?)null);
+
+        var factory = new TextTyperFactory(_loggerFactoryMock.Object, _environmentMock.Object);
+
         // Act
-        var displayServerName = TextTyperFactory.GetDisplayServerName();
+        var result = factory.IsWayland();
 
-        // Assert - should be one of the known values
-        var knownValues = new[] { "wayland", "x11", "unknown", "tty" };
+        // Assert
+        Assert.True(result); // Default to Wayland
+    }
 
-        // The value could also be the raw XDG_SESSION_TYPE value
-        // so we just verify it's not empty
-        Assert.NotEmpty(displayServerName);
+    [Theory]
+    [InlineData("wayland", "wayland")]
+    [InlineData("x11", "x11")]
+    [InlineData("tty", "tty")]
+    public void GetDisplayServerName_WithXdgSessionType_ShouldReturnSessionType(
+        string sessionType, string expected)
+    {
+        // Arrange
+        _environmentMock.Setup(e => e.GetEnvironmentVariable("XDG_SESSION_TYPE"))
+            .Returns(sessionType);
+
+        var factory = new TextTyperFactory(_loggerFactoryMock.Object, _environmentMock.Object);
+
+        // Act
+        var result = factory.GetDisplayServerName();
+
+        // Assert
+        Assert.Equal(expected, result);
     }
 
     [Fact]
-    public void Create_ShouldCreateAppropriateTyperForEnvironment()
+    public void GetDisplayServerName_WithWaylandDisplay_ShouldReturnWayland()
     {
-        // Arrange & Act
-        var typer = TextTyperFactory.Create(_loggerFactoryMock.Object);
-        var isWayland = TextTyperFactory.IsWayland();
+        // Arrange
+        _environmentMock.Setup(e => e.GetEnvironmentVariable("XDG_SESSION_TYPE"))
+            .Returns((string?)null);
+        _environmentMock.Setup(e => e.GetEnvironmentVariable("WAYLAND_DISPLAY"))
+            .Returns("wayland-0");
+
+        var factory = new TextTyperFactory(_loggerFactoryMock.Object, _environmentMock.Object);
+
+        // Act
+        var result = factory.GetDisplayServerName();
 
         // Assert
-        Assert.NotNull(typer);
-
-        // On Wayland, it should prefer DotoolTextTyper (if available)
-        // On X11, it should prefer XdotoolTextTyper (if available)
-        // The actual type depends on what tools are installed
-        if (isWayland)
-        {
-            // Either DotoolTextTyper (preferred) or XdotoolTextTyper (fallback)
-            Assert.True(typer is DotoolTextTyper || typer is XdotoolTextTyper);
-        }
-        else
-        {
-            // Either XdotoolTextTyper (preferred) or DotoolTextTyper (fallback)
-            Assert.True(typer is XdotoolTextTyper || typer is DotoolTextTyper);
-        }
+        Assert.Equal("wayland", result);
     }
 
     [Fact]
-    public void Create_MultipleCalls_ShouldCreateNewInstances()
+    public void GetDisplayServerName_WithDisplayOnly_ShouldReturnX11()
     {
-        // Arrange & Act
-        var typer1 = TextTyperFactory.Create(_loggerFactoryMock.Object);
-        var typer2 = TextTyperFactory.Create(_loggerFactoryMock.Object);
+        // Arrange
+        _environmentMock.Setup(e => e.GetEnvironmentVariable("XDG_SESSION_TYPE"))
+            .Returns((string?)null);
+        _environmentMock.Setup(e => e.GetEnvironmentVariable("WAYLAND_DISPLAY"))
+            .Returns((string?)null);
+        _environmentMock.Setup(e => e.GetEnvironmentVariable("DISPLAY"))
+            .Returns(":0");
+
+        var factory = new TextTyperFactory(_loggerFactoryMock.Object, _environmentMock.Object);
+
+        // Act
+        var result = factory.GetDisplayServerName();
 
         // Assert
-        Assert.NotNull(typer1);
-        Assert.NotNull(typer2);
-        Assert.NotSame(typer1, typer2);
+        Assert.Equal("x11", result);
+    }
+
+    [Fact]
+    public void GetDisplayServerName_WithNoEnvironmentVariables_ShouldReturnUnknown()
+    {
+        // Arrange
+        _environmentMock.Setup(e => e.GetEnvironmentVariable(It.IsAny<string>()))
+            .Returns((string?)null);
+
+        var factory = new TextTyperFactory(_loggerFactoryMock.Object, _environmentMock.Object);
+
+        // Act
+        var result = factory.GetDisplayServerName();
+
+        // Assert
+        Assert.Equal("unknown", result);
+    }
+
+    [Fact]
+    public void Create_ShouldReturnITextTyperInstance()
+    {
+        // Arrange - setup for Wayland environment
+        _environmentMock.Setup(e => e.GetEnvironmentVariable("XDG_SESSION_TYPE"))
+            .Returns("wayland");
+
+        var factory = new TextTyperFactory(_loggerFactoryMock.Object, _environmentMock.Object);
+
+        // Act
+        var result = factory.Create();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.IsAssignableFrom<ITextTyper>(result);
+    }
+}
+
+public class SystemEnvironmentProviderTests
+{
+    [Fact]
+    public void GetEnvironmentVariable_ShouldReturnSystemEnvironmentValue()
+    {
+        // Arrange
+        var provider = new SystemEnvironmentProvider();
+        var testVarName = "PATH"; // PATH should always be set
+
+        // Act
+        var result = provider.GetEnvironmentVariable(testVarName);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotEmpty(result);
+    }
+
+    [Fact]
+    public void GetEnvironmentVariable_WithNonExistentVariable_ShouldReturnNull()
+    {
+        // Arrange
+        var provider = new SystemEnvironmentProvider();
+        var testVarName = "SPEECHTOTEXT_TEST_NONEXISTENT_VAR_12345";
+
+        // Act
+        var result = provider.GetEnvironmentVariable(testVarName);
+
+        // Assert
+        Assert.Null(result);
     }
 }
