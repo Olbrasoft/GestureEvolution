@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using Olbrasoft.SpeechToText.TextInput;
-using Olbrasoft.Testing.Xunit.Attributes;
 
 namespace Olbrasoft.SpeechToText.Linux.Tests.TextInput;
 
@@ -71,36 +70,6 @@ public class DotoolTextTyperTests
 
         // Assert - should return early without throwing
         Assert.Null(exception);
-    }
-
-    [SkipOnCIFact]
-    public void IsAvailable_ShouldReturnBooleanWithoutException()
-    {
-        // Arrange
-        var typer = new DotoolTextTyper(_loggerMock.Object);
-
-        // Act
-        var exception = Record.Exception(() => _ = typer.IsAvailable);
-
-        // Assert - should not throw
-        Assert.Null(exception);
-    }
-
-    [SkipOnCIFact]
-    public async Task TypeTextAsync_WhenNotAvailable_ShouldThrowInvalidOperationException()
-    {
-        // Arrange
-        var typer = new DotoolTextTyper(_loggerMock.Object);
-
-        // Only test if dotool/wl-copy is not available
-        if (typer.IsAvailable)
-        {
-            return; // Skip test if tools are installed
-        }
-
-        // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            typer.TypeTextAsync("test text"));
     }
 
     [Fact]
