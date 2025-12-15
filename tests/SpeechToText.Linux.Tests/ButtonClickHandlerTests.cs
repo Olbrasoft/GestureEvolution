@@ -1,5 +1,6 @@
 using Moq;
 using Olbrasoft.SpeechToText;
+using Olbrasoft.SpeechToText.Actions;
 
 namespace Olbrasoft.SpeechToText.Linux.Tests;
 

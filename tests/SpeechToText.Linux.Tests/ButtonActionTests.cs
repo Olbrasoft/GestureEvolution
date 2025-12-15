@@ -1,5 +1,6 @@
 using Moq;
 using Olbrasoft.SpeechToText;
+using Olbrasoft.SpeechToText.Actions;
 using Olbrasoft.SpeechToText.Core.Interfaces;
 using Olbrasoft.SpeechToText.Core.Models;
 
