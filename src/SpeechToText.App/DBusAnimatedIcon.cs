@@ -196,6 +196,12 @@ public class DBusAnimatedIcon : IDisposable
 
         try
         {
+            // Signal GNOME Shell to hide the icon BEFORE removing handler (issue #77)
+            if (_sniHandler is not null)
+            {
+                _sniHandler.SetStatus("Passive");
+            }
+
             // No ReleaseNameAsync - we use unique connection name, not well-known name (issue #62)
             if (_sniHandler is not null && _pathHandler is not null)
             {
@@ -317,5 +323,15 @@ internal class AnimatedIconHandler : OrgKdeStatusNotifierItemHandler
         // Emit signals to notify the tray about the change
         EmitNewIcon();
         EmitNewStatus(Status);
+    }
+
+    /// <summary>
+    /// Sets the icon status and emits D-Bus signal to notify GNOME Shell.
+    /// Use "Passive" to hide the icon, "Active" to show it.
+    /// </summary>
+    public void SetStatus(string status)
+    {
+        Status = status;
+        EmitNewStatus(status);
     }
 }
