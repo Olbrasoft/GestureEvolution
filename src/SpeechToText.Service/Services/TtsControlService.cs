@@ -168,4 +168,64 @@ public class TtsControlService : ITtsControlService
             _logger.LogWarning(ex, "Failed to send VirtualAssistant TTS stop request");
         }
     }
+
+    /// <inheritdoc/>
+    public async Task StartSpeechLockAsync(int? timeoutSeconds = null)
+    {
+        try
+        {
+            HttpContent? content = null;
+            if (timeoutSeconds.HasValue)
+            {
+                content = new StringContent(
+                    JsonSerializer.Serialize(new { TimeoutSeconds = timeoutSeconds.Value }),
+                    Encoding.UTF8,
+                    "application/json");
+            }
+
+            var response = await _httpClient.PostAsync(
+                $"{_virtualAssistantBaseUrl}/api/speech-lock/start",
+                content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogDebug("Speech lock started on VirtualAssistant (timeout: {Timeout}s)",
+                    timeoutSeconds ?? 30);
+            }
+            else
+            {
+                _logger.LogWarning("Speech lock start request failed: {StatusCode}", response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Don't fail recording if VA is not running
+            _logger.LogDebug(ex, "Could not start speech lock on VirtualAssistant (may not be running)");
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task StopSpeechLockAsync()
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync(
+                $"{_virtualAssistantBaseUrl}/api/speech-lock/stop",
+                null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogDebug("Speech lock stopped on VirtualAssistant");
+            }
+            else
+            {
+                _logger.LogWarning("Speech lock stop request failed: {StatusCode}", response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Don't fail recording if VA is not running
+            _logger.LogDebug(ex, "Could not stop speech lock on VirtualAssistant (may not be running)");
+        }
+    }
 }

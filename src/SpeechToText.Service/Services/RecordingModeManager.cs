@@ -27,9 +27,6 @@ public class RecordingModeManager : IRecordingModeManager
     {
         _logger.LogDebug("Entering recording mode...");
 
-        // Stop any TTS speech immediately (fire-and-forget but don't await)
-        _ = _ttsControlService.StopAllSpeechAsync();
-
         // Save current mute state before forcing mute (to restore after recording)
         var previousMuteState = await _ttsControlService.GetMuteStateAsync();
         _logger.LogDebug("Saved previous mute state: {PreviousMuteState}", previousMuteState);
@@ -41,7 +38,11 @@ public class RecordingModeManager : IRecordingModeManager
             await _ttsControlService.SetMuteAsync(true);
         }
 
-        // Create speech lock synchronously to prevent TTS from speaking during recording
+        // Start speech lock via HTTP API (stops TTS, creates lock with timeout)
+        // This replaces the old fire-and-forget StopAllSpeechAsync call
+        await _ttsControlService.StartSpeechLockAsync();
+
+        // Create file-based speech lock as backup (for backward compatibility)
         _speechLockService.CreateLock("PushToTalk:Recording");
 
         _logger.LogDebug("Recording mode entered");
@@ -53,8 +54,12 @@ public class RecordingModeManager : IRecordingModeManager
     {
         _logger.LogDebug("Exiting recording mode...");
 
-        // Delete speech lock to allow TTS to speak again
+        // Delete file-based speech lock
         _speechLockService.ReleaseLock();
+
+        // Stop speech lock via HTTP API (releases lock, flushes queued messages)
+        // This replaces the old FlushQueueAsync call
+        await _ttsControlService.StopSpeechLockAsync();
 
         // Restore VirtualAssistant mute state to what it was before recording
         if (context.PreviousMuteState.HasValue)
@@ -67,9 +72,6 @@ public class RecordingModeManager : IRecordingModeManager
             // Fallback: if we couldn't get previous state, unmute
             await _ttsControlService.SetMuteAsync(false);
         }
-
-        // Flush any queued TTS messages that accumulated during dictation
-        await _ttsControlService.FlushQueueAsync();
 
         _logger.LogDebug("Recording mode exited");
     }

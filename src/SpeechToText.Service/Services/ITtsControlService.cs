@@ -29,4 +29,18 @@ public interface ITtsControlService
     /// </summary>
     /// <param name="muted">True to mute, false to unmute.</param>
     Task SetMuteAsync(bool muted);
+
+    /// <summary>
+    /// Starts speech lock on VirtualAssistant.
+    /// Stops current TTS playback and prevents new speech until unlocked.
+    /// Uses auto-timeout for safety (default 30s).
+    /// </summary>
+    /// <param name="timeoutSeconds">Optional timeout in seconds (default 30).</param>
+    Task StartSpeechLockAsync(int? timeoutSeconds = null);
+
+    /// <summary>
+    /// Stops speech lock on VirtualAssistant.
+    /// Unlocks TTS and immediately processes any queued notifications.
+    /// </summary>
+    Task StopSpeechLockAsync();
 }
