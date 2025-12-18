@@ -22,7 +22,10 @@ public class TranscriptionTrayService : IDisposable
     private readonly string _logsViewerUrl;
     private readonly string _version;
 
-    private IntPtr _indicator;
+    private IntPtr _leftIndicator;   // Left hand gesture indicator
+    private IntPtr _centerIndicator; // Robot (main) indicator
+    private IntPtr _rightIndicator;  // Right hand gesture indicator
+
     private string _iconsPath = null!;
     private string[] _frameNames = null!;
     private int _currentFrame;
@@ -84,22 +87,50 @@ public class TranscriptionTrayService : IDisposable
             _frameNames[i] = $"document-white-frame{i + 1}";
         }
 
-        // Create app indicator with robot icon (always visible)
-        _indicator = AppIndicator.app_indicator_new(
-            "speech-to-text",
+        // Create left indicator (left hand gestures)
+        _leftIndicator = AppIndicator.app_indicator_new(
+            "speech-to-text-left",
+            "left-mouse",
+            AppIndicator.Category.ApplicationStatus);
+
+        if (_leftIndicator == IntPtr.Zero)
+        {
+            throw new InvalidOperationException("Failed to create left indicator");
+        }
+
+        AppIndicator.app_indicator_set_icon_theme_path(_leftIndicator, _iconsPath);
+        AppIndicator.app_indicator_set_title(_leftIndicator, "Left Hand");
+        AppIndicator.app_indicator_set_status(_leftIndicator, AppIndicator.Status.Active);
+
+        // Create center indicator with robot icon (always visible)
+        _centerIndicator = AppIndicator.app_indicator_new(
+            "speech-to-text-center",
             "robot",
             AppIndicator.Category.ApplicationStatus);
 
-        if (_indicator == IntPtr.Zero)
+        if (_centerIndicator == IntPtr.Zero)
         {
-            throw new InvalidOperationException("Failed to create app indicator");
+            throw new InvalidOperationException("Failed to create center indicator");
         }
 
-        AppIndicator.app_indicator_set_icon_theme_path(_indicator, _iconsPath);
-        AppIndicator.app_indicator_set_title(_indicator, "Speech to Text");
+        AppIndicator.app_indicator_set_icon_theme_path(_centerIndicator, _iconsPath);
+        AppIndicator.app_indicator_set_title(_centerIndicator, "Speech to Text");
+        AppIndicator.app_indicator_set_status(_centerIndicator, AppIndicator.Status.Active);
 
-        // Start as ACTIVE (visible)
-        AppIndicator.app_indicator_set_status(_indicator, AppIndicator.Status.Active);
+        // Create right indicator (right hand gestures)
+        _rightIndicator = AppIndicator.app_indicator_new(
+            "speech-to-text-right",
+            "right-mouse",
+            AppIndicator.Category.ApplicationStatus);
+
+        if (_rightIndicator == IntPtr.Zero)
+        {
+            throw new InvalidOperationException("Failed to create right indicator");
+        }
+
+        AppIndicator.app_indicator_set_icon_theme_path(_rightIndicator, _iconsPath);
+        AppIndicator.app_indicator_set_title(_rightIndicator, "Right Hand");
+        AppIndicator.app_indicator_set_status(_rightIndicator, AppIndicator.Status.Active);
         
         // Create menu
         CreateMenu();
@@ -140,7 +171,8 @@ public class TranscriptionTrayService : IDisposable
         GObject.g_signal_connect_data(quitItem, "activate", _quitCallback, IntPtr.Zero, IntPtr.Zero, 0);
 
         Gtk.gtk_widget_show_all(menu);
-        AppIndicator.app_indicator_set_menu(_indicator, menu);
+        // Menu only on center (robot) indicator
+        AppIndicator.app_indicator_set_menu(_centerIndicator, menu);
     }
 
     private void OnPttEvent(object? sender, PttEvent evt)
@@ -184,10 +216,10 @@ public class TranscriptionTrayService : IDisposable
 
     private void ShowIndicator()
     {
-        if (!_isInitialized || _indicator == IntPtr.Zero)
+        if (!_isInitialized || _centerIndicator == IntPtr.Zero)
             return;
-            
-        AppIndicator.app_indicator_set_status(_indicator, AppIndicator.Status.Active);
+
+        AppIndicator.app_indicator_set_status(_centerIndicator, AppIndicator.Status.Active);
         
         // Start typing sound
         _typingSoundPlayer.StartLoop();
@@ -205,10 +237,10 @@ public class TranscriptionTrayService : IDisposable
 
     private void HideIndicator()
     {
-        if (!_isInitialized || _indicator == IntPtr.Zero)
+        if (!_isInitialized || _centerIndicator == IntPtr.Zero)
             return;
-            
-        AppIndicator.app_indicator_set_status(_indicator, AppIndicator.Status.Passive);
+
+        AppIndicator.app_indicator_set_status(_centerIndicator, AppIndicator.Status.Passive);
         
         // Stop typing sound
         _typingSoundPlayer.StopLoop();
@@ -225,15 +257,15 @@ public class TranscriptionTrayService : IDisposable
 
     private bool AnimateFrame(IntPtr data)
     {
-        if (!_isInitialized || _indicator == IntPtr.Zero || !_isAnimating)
+        if (!_isInitialized || _centerIndicator == IntPtr.Zero || !_isAnimating)
             return false;
-            
+
         _currentFrame = (_currentFrame + 1) % FrameCount;
-        
+
         // Set icon using full path (AppIndicator needs absolute path for custom icons)
         var iconPath = Path.Combine(_iconsPath, $"{_frameNames[_currentFrame]}.svg");
-        AppIndicator.app_indicator_set_icon_full(_indicator, iconPath, "Transcribing...");
-        
+        AppIndicator.app_indicator_set_icon_full(_centerIndicator, iconPath, "Transcribing...");
+
         return true; // Continue animation
     }
 
@@ -308,6 +340,37 @@ public class TranscriptionTrayService : IDisposable
                 return false;
             }, IntPtr.Zero);
         }
+    }
+
+    /// <summary>
+    /// Updates gesture icons based on detected hand gestures.
+    /// </summary>
+    /// <param name="isLeftHand">True for left hand, false for right hand</param>
+    /// <param name="iconName">Name of icon to display (without .svg extension)</param>
+    public void UpdateGestureIcon(bool isLeftHand, string iconName)
+    {
+        if (!_isInitialized)
+            return;
+
+        GLib.g_idle_add(_ =>
+        {
+            var indicator = isLeftHand ? _leftIndicator : _rightIndicator;
+            var iconPath = Path.Combine(_iconsPath, $"{iconName}.svg");
+
+            if (File.Exists(iconPath))
+            {
+                AppIndicator.app_indicator_set_icon_full(indicator, iconPath,
+                    isLeftHand ? "Left Hand Gesture" : "Right Hand Gesture");
+                _logger.LogDebug("Updated {Hand} hand icon to {Icon}",
+                    isLeftHand ? "left" : "right", iconName);
+            }
+            else
+            {
+                _logger.LogWarning("Icon not found: {IconPath}", iconPath);
+            }
+
+            return false;
+        }, IntPtr.Zero);
     }
 
     public void Dispose()

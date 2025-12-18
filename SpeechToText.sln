@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -22,6 +22,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeechToText.App.Tests", "tests\SpeechToText.App.Tests\SpeechToText.App.Tests.csproj", "{F87ABBB7-3EEE-4654-8DAD-57BAEA6B204F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeechToText.Service.Tests", "tests\SpeechToText.Service.Tests\SpeechToText.Service.Tests.csproj", "{18F17F64-6CEA-4824-8087-7A3A03428E0E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeechToText.GestureControl", "src\SpeechToText.GestureControl\SpeechToText.GestureControl.csproj", "{9813C2B7-3487-4D72-BDFF-7ECCD290173B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -129,6 +131,18 @@ Global
 		{18F17F64-6CEA-4824-8087-7A3A03428E0E}.Release|x64.Build.0 = Release|Any CPU
 		{18F17F64-6CEA-4824-8087-7A3A03428E0E}.Release|x86.ActiveCfg = Release|Any CPU
 		{18F17F64-6CEA-4824-8087-7A3A03428E0E}.Release|x86.Build.0 = Release|Any CPU
+		{9813C2B7-3487-4D72-BDFF-7ECCD290173B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9813C2B7-3487-4D72-BDFF-7ECCD290173B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9813C2B7-3487-4D72-BDFF-7ECCD290173B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9813C2B7-3487-4D72-BDFF-7ECCD290173B}.Debug|x64.Build.0 = Debug|Any CPU
+		{9813C2B7-3487-4D72-BDFF-7ECCD290173B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9813C2B7-3487-4D72-BDFF-7ECCD290173B}.Debug|x86.Build.0 = Debug|Any CPU
+		{9813C2B7-3487-4D72-BDFF-7ECCD290173B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9813C2B7-3487-4D72-BDFF-7ECCD290173B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9813C2B7-3487-4D72-BDFF-7ECCD290173B}.Release|x64.ActiveCfg = Release|Any CPU
+		{9813C2B7-3487-4D72-BDFF-7ECCD290173B}.Release|x64.Build.0 = Release|Any CPU
+		{9813C2B7-3487-4D72-BDFF-7ECCD290173B}.Release|x86.ActiveCfg = Release|Any CPU
+		{9813C2B7-3487-4D72-BDFF-7ECCD290173B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -142,5 +156,6 @@ Global
 		{C537AA11-FD94-4B3A-817C-00648E999519} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{F87ABBB7-3EEE-4654-8DAD-57BAEA6B204F} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{18F17F64-6CEA-4824-8087-7A3A03428E0E} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{9813C2B7-3487-4D72-BDFF-7ECCD290173B} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

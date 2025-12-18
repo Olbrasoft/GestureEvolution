@@ -5,6 +5,7 @@ using Olbrasoft.SpeechToText.Core.Interfaces;
 using Olbrasoft.SpeechToText.Service.Services;
 using Olbrasoft.SpeechToText.Speech;
 using Olbrasoft.SpeechToText.TextInput;
+using Olbrasoft.SpeechToText.GestureControl.Services;
 
 // Disambiguate types that exist in multiple namespaces
 using SttManualMuteService = Olbrasoft.SpeechToText.Service.Services.ManualMuteService;
@@ -125,6 +126,13 @@ public static class ServiceCollectionExtensions
         // Register interfaces pointing to the same DictationWorker instance
         services.AddSingleton<IRecordingStateProvider>(sp => sp.GetRequiredService<DictationWorker>());
         services.AddSingleton<IRecordingController>(sp => sp.GetRequiredService<DictationWorker>());
+
+        // Gesture detection service (background service for hand tracking)
+        services.AddSingleton<GestureDetectionService>();
+        services.AddHostedService<GestureDetectionService>(sp => sp.GetRequiredService<GestureDetectionService>());
+
+        // Bridge service to connect gesture detection with tray icons
+        services.AddHostedService<GestureTrayBridgeService>();
 
         return services;
     }
