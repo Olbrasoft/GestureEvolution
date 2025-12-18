@@ -8,24 +8,22 @@ using Olbrasoft.SpeechToText.TextInput;
 
 // Disambiguate types that exist in multiple namespaces
 using SttManualMuteService = Olbrasoft.SpeechToText.Service.Services.ManualMuteService;
-using SttEvdevKeyboardMonitor = Olbrasoft.SpeechToText.EvdevKeyboardMonitor;
 
 namespace Olbrasoft.SpeechToText.Service;
 
 /// <summary>
-/// Extension methods for registering PushToTalk services.
+/// Extension methods for registering SpeechToText services.
 /// </summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds all PushToTalk services to the service collection.
+    /// Adds all SpeechToText services to the service collection.
     /// </summary>
     public static IServiceCollection AddSpeechToTextServices(
         this IServiceCollection services,
         IConfiguration configuration)
     {
         // Get configuration values
-        var keyboardDevice = configuration.GetValue<string?>("SpeechToTextDictation:KeyboardDevice");
         var ggmlModelPath = configuration.GetValue<string>("SpeechToTextDictation:GgmlModelPath")
             ?? Path.Combine(AppContext.BaseDirectory, "models", "ggml-medium.bin");
         var whisperLanguage = configuration.GetValue<string>("SpeechToTextDictation:WhisperLanguage") ?? "cs";
@@ -50,20 +48,14 @@ public static class ServiceCollectionExtensions
         // Transcription history service (single-level history for repeat functionality)
         services.AddSingleton<ITranscriptionHistory, TranscriptionHistory>();
 
-        // Manual mute service (ScrollLock) - register as concrete type for injection
+        // Manual mute service - register as concrete type for injection
         // Also register interface for backwards compatibility
         services.AddSingleton<SttManualMuteService>();
         services.AddSingleton<Olbrasoft.SpeechToText.Services.IManualMuteService>(sp =>
             sp.GetRequiredService<SttManualMuteService>());
 
         // Register services
-        services.AddSingleton<IKeyboardMonitor>(sp =>
-        {
-            var logger = sp.GetRequiredService<ILogger<SttEvdevKeyboardMonitor>>();
-            return new SttEvdevKeyboardMonitor(logger, keyboardDevice);
-        });
-
-        // Key simulator (ISP: separated from keyboard monitoring)
+        // Key simulator (for text input simulation)
         services.AddSingleton<IKeySimulator, UinputKeySimulator>();
 
         services.AddSingleton<IAudioRecorder>(sp =>
