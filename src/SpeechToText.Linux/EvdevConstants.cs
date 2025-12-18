@@ -29,21 +29,6 @@ public static class EvdevConstants
     public const ushort EV_KEY = 0x01;
 
     /// <summary>
-    /// Left mouse button code (BTN_LEFT).
-    /// </summary>
-    public const ushort BTN_LEFT = 272;   // 0x110
-
-    /// <summary>
-    /// Right mouse button code (BTN_RIGHT).
-    /// </summary>
-    public const ushort BTN_RIGHT = 273;  // 0x111
-
-    /// <summary>
-    /// Middle mouse button code (BTN_MIDDLE).
-    /// </summary>
-    public const ushort BTN_MIDDLE = 274; // 0x112
-
-    /// <summary>
     /// Value indicating key/button press.
     /// </summary>
     public const int KEY_PRESS = 1;

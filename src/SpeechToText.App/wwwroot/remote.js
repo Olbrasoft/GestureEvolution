@@ -7,10 +7,9 @@ const elements = {
     statusText: document.getElementById('statusText'),
     duration: document.getElementById('duration'),
     btnToggle: document.getElementById('btnToggle'),
-    btnStart: document.getElementById('btnStart'),
-    btnStop: document.getElementById('btnStop'),
     toggleIcon: document.getElementById('toggleIcon'),
     toggleText: document.getElementById('toggleText'),
+    btnEnter: document.getElementById('btnEnter'),
     transcriptionText: document.getElementById('transcriptionText')
 };
 
@@ -23,7 +22,7 @@ let recordingStartTime = null;
 // Build SignalR connection
 function buildConnection() {
     // Use relative URL - works on any host
-    const hubUrl = window.location.origin + '/hubs/ptt';
+    const hubUrl = window.location.origin + '/hubs/dictation';
 
     connection = new signalR.HubConnectionBuilder()
         .withUrl(hubUrl)
@@ -48,15 +47,15 @@ function buildConnection() {
         setConnectionStatus(false);
     });
 
-    // PTT Events from server
-    connection.on('PttEvent', handlePttEvent);
+    // Dictation Events from server
+    connection.on('DictationEvent', handleDictationEvent);
     connection.on('Connected', (connectionId) => {
         console.log('Connected with ID:', connectionId);
     });
 }
 
-function handlePttEvent(event) {
-    console.log('PttEvent:', event);
+function handleDictationEvent(event) {
+    console.log('DictationEvent:', event);
 
     switch (event.eventType) {
         case 0: // RecordingStarted
@@ -89,8 +88,7 @@ function setConnectionStatus(connected) {
     elements.connectionStatus.className = 'connection-status ' + (connected ? 'connected' : 'disconnected');
 
     elements.btnToggle.disabled = !connected;
-    elements.btnStart.disabled = !connected;
-    elements.btnStop.disabled = !connected;
+    elements.btnEnter.disabled = !connected;
 
     if (!connected) {
         elements.statusDot.className = 'status-dot';
@@ -114,15 +112,22 @@ function setRecordingState(recording, transcribing) {
         elements.statusText.textContent = 'Pripraveno';
     }
 
-    // Update toggle button
+    // Update toggle button - three states: Start, Stop, Zrusit
+    elements.btnToggle.classList.remove('recording', 'transcribing');
     if (recording) {
         elements.btnToggle.classList.add('recording');
+        elements.btnToggle.disabled = false;
         elements.toggleIcon.innerHTML = '&#9632;'; // Stop icon
-        elements.toggleText.textContent = 'Zastavit';
+        elements.toggleText.textContent = 'Stop';
+    } else if (transcribing) {
+        elements.btnToggle.classList.add('transcribing');
+        elements.btnToggle.disabled = false; // ENABLED - clicking cancels transcription
+        elements.toggleIcon.innerHTML = '&#10006;'; // X icon for cancel
+        elements.toggleText.textContent = 'Zrusit';
     } else {
-        elements.btnToggle.classList.remove('recording');
+        elements.btnToggle.disabled = false;
         elements.toggleIcon.innerHTML = '&#9658;'; // Play icon
-        elements.toggleText.textContent = 'Zacit';
+        elements.toggleText.textContent = 'Start';
     }
 
     // Update duration display
@@ -136,10 +141,6 @@ function setRecordingState(recording, transcribing) {
             elements.duration.classList.remove('visible');
         }
     }
-
-    // Update button states
-    elements.btnStart.disabled = recording || !connection;
-    elements.btnStop.disabled = !recording || !connection;
 }
 
 function setTranscriptionText(text) {
@@ -176,37 +177,39 @@ async function refreshStatus() {
     }
 }
 
-// Button handlers
+// Button handler - three functions: Start, Stop, Cancel
 elements.btnToggle.addEventListener('click', async () => {
+    console.log('Toggle button clicked, isRecording:', isRecording, 'isTranscribing:', isTranscribing);
+
+    if (isTranscribing) {
+        // During transcription, toggle button acts as Cancel
+        console.log('Calling CancelTranscription...');
+        try {
+            await connection.invoke('CancelTranscription');
+            console.log('CancelTranscription completed');
+        } catch (error) {
+            console.error('Cancel failed:', error);
+        }
+        return;
+    }
+
+    // Start or Stop recording
     try {
-        elements.btnToggle.disabled = true;
         await connection.invoke('ToggleRecording');
+        console.log('ToggleRecording completed');
     } catch (error) {
         console.error('Toggle failed:', error);
-    } finally {
-        elements.btnToggle.disabled = false;
     }
 });
 
-elements.btnStart.addEventListener('click', async () => {
+// Enter button - sends Enter key press
+elements.btnEnter.addEventListener('click', async () => {
+    console.log('Enter button clicked');
     try {
-        elements.btnStart.disabled = true;
-        await connection.invoke('StartRecording');
+        await connection.invoke('SendEnter');
+        console.log('SendEnter completed');
     } catch (error) {
-        console.error('Start failed:', error);
-    } finally {
-        elements.btnStart.disabled = isRecording;
-    }
-});
-
-elements.btnStop.addEventListener('click', async () => {
-    try {
-        elements.btnStop.disabled = true;
-        await connection.invoke('StopRecording');
-    } catch (error) {
-        console.error('Stop failed:', error);
-    } finally {
-        elements.btnStop.disabled = !isRecording;
+        console.error('SendEnter failed:', error);
     }
 });
 

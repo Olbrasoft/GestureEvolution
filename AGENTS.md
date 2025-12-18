@@ -1,54 +1,56 @@
-# SpeechToText
+# AGENTS.md
 
-Linux PTT dictation. CapsLock→record→Whisper→type.
+Instructions for AI agents working with this repository.
 
-## Stack
-.NET10 | ASP.NET Core | SignalR | Whisper.net(CUDA) | ALSA | evdev | D-Bus
+## Project Overview
 
-## Structure
-```
-src/SpeechToText.Core/       # Interfaces, models
-src/SpeechToText.Linux/      # Linux impls
-src/SpeechToText.App/        # Desktop+tray
-src/SpeechToText.Service/    # ASP.NET+SignalR
-tests/*Tests/                # xUnit+Moq (39 tests)
-```
-Projects=`SpeechToText.*` Namespaces=`Olbrasoft.SpeechToText.*`
+Push-to-Talk functionality for Linux voice assistant. Monitors mouse buttons (side buttons, middle click) and triggers speech-to-text recording via HTTP API calls.
 
-## Key Files
-Core/Interfaces: IAudioRecorder, IKeyboardMonitor(read), IKeySimulator(write-ISP), ISpeechTranscriber, ITextTyper
-Core/Models: AudioDataEventArgs, KeyCode, KeyEventArgs, TranscriptionResult
-Linux: AlsaAudioRecorder, EvdevKeyboardMonitor, UinputKeySimulator, WhisperNetTranscriber
-TextInput: XdotoolTextTyper(X11), DotoolTextTyper(Wayland), TextTyperFactory
-App: DictationService, DBusTrayIcon, SingleInstanceLock
-Service: DictationWorker, PttHub
+## Build Commands
 
-## Commands
 ```bash
-dotnet build && dotnet test
-dotnet run --project src/SpeechToText.Service
+dotnet build
+dotnet test
+dotnet publish -c Release -o ./publish
 ```
 
-## Config (appsettings.json)
-```json
-{"PushToTalkDictation":{"KeyboardDevice":"/dev/input/by-id/...","TriggerKey":"CapsLock","GgmlModelPath":"/path/ggml-large-v3.bin","WhisperLanguage":"cs"}}
-```
+## Code Style
 
-## Flow
-CapsLock↓→EvdevMonitor→Dictation→AlsaRecorder+TrayAnim
-CapsLock↑→StopRecord→Whisper→Filter→Typer→PttHub
+- Follow Microsoft C# naming conventions
+- Use xUnit + Moq for testing
+- Target .NET 10
+- Namespace prefix: `Olbrasoft.PushToTalk`
 
-## Patterns
-CleanArch | ISP(Monitor/Simulator) | Strategy(TextTyper) | DI | IAsyncDisposable
+## Important Paths
 
-## Deps
-Whisper.net | Whisper.net.Runtime.Cuda.Linux | NAudio | SkiaSharp | Tmds.DBus
+- Source: `src/`
+  - `PushToTalk.Core/` - Core logic and interfaces
+  - `PushToTalk.Linux/` - Linux-specific implementations
+  - `PushToTalk.App/` - Desktop application
+  - `PushToTalk.Service/` - Background service
+- Tests: `tests/`
+  - Each source project has its own test project
+- Solution: `PushToTalk.sln`
 
-## Notes
-- evdev needs root/input group
-- Device: `/dev/input/by-id/`
-- Lock: `/tmp/push-to-talk-dictation.lock`
-- CUDA optional→CPU fallback
+## Architecture
 
-## API
-SignalR `/hubs/ptt`: RecordingStarted, RecordingStopped, TranscriptionComplete(text), Error(msg)
+- **Strategy Pattern** for mouse button monitoring (libevdev, udev, etc.)
+- **SOLID principles** - especially Single Responsibility and Dependency Inversion
+- Clean separation: Core (interfaces/models) -> Linux (platform) -> App/Service (UI/hosting)
+
+## Testing Requirements
+
+- Test naming: `[Method]_[Scenario]_[Expected]`
+- Example: `Monitor_ButtonPressed_TriggersCallback`
+- Framework: xUnit + Moq
+
+## Secrets
+
+Never commit secrets. Use:
+- `dotnet user-secrets` for local development
+- GitHub Secrets for CI/CD
+
+## Related Projects
+
+- VirtualAssistant (`~/Olbrasoft/VirtualAssistant/`) - Main voice assistant
+- edge-tts-server - Text-to-speech service

@@ -12,7 +12,7 @@ public class UinputKeySimulator : IKeySimulator
 {
     private readonly ILogger<UinputKeySimulator> _logger;
     private const string UinputPath = "/dev/uinput";
-    private const string DeviceName = "speech-to-text-kbd";
+    private const string DeviceName = "push-to-talk-kbd";
 
     // Timing delays (in milliseconds)
     private const int DeviceSetupDelayMs = 100;

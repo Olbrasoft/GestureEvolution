@@ -19,7 +19,7 @@ public static class AboutDialog
                             $"Version: {version}\n\n" +
                             $"Voice transcription using Whisper AI.\n" +
                             $"Press CapsLock to start dictation.\n\n" +
-                            $"https://github.com/Olbrasoft/SpeechToText";
+                            $"https://github.com/Olbrasoft/PushToTalk";
 
             var startInfo = new ProcessStartInfo
             {
@@ -35,7 +35,7 @@ public static class AboutDialog
         {
             Console.WriteLine($"Could not show About dialog: {ex.Message}");
             Console.WriteLine($"Speech to Text v{version}");
-            Console.WriteLine("https://github.com/Olbrasoft/SpeechToText");
+            Console.WriteLine("https://github.com/Olbrasoft/PushToTalk");
         }
     }
 }

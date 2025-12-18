@@ -40,8 +40,8 @@ public static class ServiceCollectionExtensions
         // Audio recorder
         services.AddSingleton<IAudioRecorder>(sp =>
         {
-            var logger = sp.GetRequiredService<ILogger<AlsaAudioRecorder>>();
-            return new AlsaAudioRecorder(logger);
+            var logger = sp.GetRequiredService<ILogger<PipeWireAudioRecorder>>();
+            return new PipeWireAudioRecorder(logger);
         });
 
         // Speech transcriber
@@ -87,26 +87,40 @@ public static class ServiceCollectionExtensions
             });
         }
 
-        // Dictation service
+        // Transcription coordinator (combines speech transcription + sound feedback)
+        services.AddSingleton<ITranscriptionCoordinator>(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<TranscriptionCoordinator>>();
+            var transcriber = sp.GetRequiredService<ISpeechTranscriber>();
+            var soundPlayer = sp.GetService<TypingSoundPlayer>();
+            return new TranscriptionCoordinator(logger, transcriber, soundPlayer);
+        });
+
+        // Text output handler (combines text filtering + typing)
+        services.AddSingleton<ITextOutputHandler>(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<TextOutputHandler>>();
+            var textTyper = sp.GetRequiredService<ITextTyper>();
+            var textFilter = sp.GetService<TextFilter>();
+            return new TextOutputHandler(logger, textTyper, textFilter);
+        });
+
+        // Dictation service (orchestrates recording, transcription, and output)
         services.AddSingleton(sp =>
         {
             var logger = sp.GetRequiredService<ILogger<DictationService>>();
             var keyboardMonitor = sp.GetRequiredService<IKeyboardMonitor>();
             var audioRecorder = sp.GetRequiredService<IAudioRecorder>();
-            var transcriber = sp.GetRequiredService<ISpeechTranscriber>();
-            var textTyper = sp.GetRequiredService<ITextTyper>();
-            var soundPlayer = sp.GetService<TypingSoundPlayer>();
-            var textFilter = sp.GetService<TextFilter>();
+            var transcriptionCoordinator = sp.GetRequiredService<ITranscriptionCoordinator>();
+            var textOutputHandler = sp.GetRequiredService<ITextOutputHandler>();
             var vaClient = sp.GetService<IVirtualAssistantClient>();
 
             return new DictationService(
                 logger,
                 keyboardMonitor,
                 audioRecorder,
-                transcriber,
-                textTyper,
-                soundPlayer,
-                textFilter,
+                transcriptionCoordinator,
+                textOutputHandler,
                 vaClient,
                 options.GetTriggerKeyCode(),
                 options.GetCancelKeyCode());

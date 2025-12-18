@@ -48,7 +48,7 @@ public interface IKeyboardMonitor : IDisposable
 
     /// <summary>
     /// Programmatically raises a KeyReleased event without actually pressing the key.
-    /// Used by BluetoothMouseMonitor to trigger DictationWorker without physical key press.
+    /// Used to trigger DictationWorker without physical key press.
     /// This does NOT change LED state - only raises the event for subscribers.
     /// </summary>
     /// <param name="key">The key to raise event for.</param>

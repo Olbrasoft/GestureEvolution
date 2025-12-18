@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>io.olbrasoft.SpeechToText</id>
+  <id>io.olbrasoft.PushToTalk</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
-  <name>Speech To Text</name>
+  <name>Push To Talk</name>
   <summary>Voice transcription using Whisper AI</summary>
 
   <description>
     <p>
-      Speech To Text is a desktop application for Linux that provides voice-to-text
+      Push To Talk is a desktop application for Linux that provides voice-to-text
       transcription using OpenAI's Whisper AI model. It runs locally on your machine
       with GPU acceleration support for fast, private transcription.
     </p>
@@ -23,17 +23,17 @@
     </ul>
   </description>
 
-  <launchable type="desktop-id">io.olbrasoft.SpeechToText.desktop</launchable>
+  <launchable type="desktop-id">io.olbrasoft.PushToTalk.desktop</launchable>
 
-  <url type="homepage">https://github.com/Olbrasoft/SpeechToText</url>
-  <url type="bugtracker">https://github.com/Olbrasoft/SpeechToText/issues</url>
+  <url type="homepage">https://github.com/Olbrasoft/PushToTalk</url>
+  <url type="bugtracker">https://github.com/Olbrasoft/PushToTalk/issues</url>
 
   <developer id="io.olbrasoft">
     <name>Olbrasoft</name>
   </developer>
 
   <provides>
-    <binary>speech-to-text</binary>
+    <binary>push-to-talk</binary>
   </provides>
 
   <requires>
@@ -55,7 +55,7 @@
     <keyword>whisper</keyword>
     <keyword>dictation</keyword>
     <keyword>transcription</keyword>
-    <keyword>speech</keyword>
+    <keyword>ptt</keyword>
     <keyword>microphone</keyword>
     <keyword>AI</keyword>
   </keywords>

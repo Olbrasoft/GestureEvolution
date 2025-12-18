@@ -7,20 +7,20 @@ using Olbrasoft.SpeechToText.Speech;
 using Olbrasoft.SpeechToText.TextInput;
 
 // Disambiguate types that exist in multiple namespaces
-using PttManualMuteService = Olbrasoft.SpeechToText.Service.Services.ManualMuteService;
-using PttEvdevKeyboardMonitor = Olbrasoft.SpeechToText.EvdevKeyboardMonitor;
+using SttManualMuteService = Olbrasoft.SpeechToText.Service.Services.ManualMuteService;
+using SttEvdevKeyboardMonitor = Olbrasoft.SpeechToText.EvdevKeyboardMonitor;
 
 namespace Olbrasoft.SpeechToText.Service;
 
 /// <summary>
-/// Extension methods for registering SpeechToText services.
+/// Extension methods for registering PushToTalk services.
 /// </summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds all SpeechToText services to the service collection.
+    /// Adds all PushToTalk services to the service collection.
     /// </summary>
-    public static IServiceCollection AddSpeechToTextServices(
+    public static IServiceCollection AddPushToTalkServices(
         this IServiceCollection services,
         IConfiguration configuration)
     {
@@ -29,7 +29,6 @@ public static class ServiceCollectionExtensions
         var ggmlModelPath = configuration.GetValue<string>("PushToTalkDictation:GgmlModelPath")
             ?? Path.Combine(AppContext.BaseDirectory, "models", "ggml-medium.bin");
         var whisperLanguage = configuration.GetValue<string>("PushToTalkDictation:WhisperLanguage") ?? "cs";
-        var bluetoothTripleClickCommand = configuration.GetValue<string?>("BluetoothMouse:TripleClickCommand");
 
         // SignalR
         services.AddSignalR();
@@ -53,15 +52,15 @@ public static class ServiceCollectionExtensions
 
         // Manual mute service (ScrollLock) - register as concrete type for injection
         // Also register interface for backwards compatibility
-        services.AddSingleton<PttManualMuteService>();
+        services.AddSingleton<SttManualMuteService>();
         services.AddSingleton<Olbrasoft.SpeechToText.Services.IManualMuteService>(sp =>
-            sp.GetRequiredService<PttManualMuteService>());
+            sp.GetRequiredService<SttManualMuteService>());
 
         // Register services
         services.AddSingleton<IKeyboardMonitor>(sp =>
         {
-            var logger = sp.GetRequiredService<ILogger<PttEvdevKeyboardMonitor>>();
-            return new PttEvdevKeyboardMonitor(logger, keyboardDevice);
+            var logger = sp.GetRequiredService<ILogger<SttEvdevKeyboardMonitor>>();
+            return new SttEvdevKeyboardMonitor(logger, keyboardDevice);
         });
 
         // Key simulator (ISP: separated from keyboard monitoring)
@@ -69,8 +68,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IAudioRecorder>(sp =>
         {
-            var logger = sp.GetRequiredService<ILogger<AlsaAudioRecorder>>();
-            return new AlsaAudioRecorder(logger);
+            var logger = sp.GetRequiredService<ILogger<PipeWireAudioRecorder>>();
+            return new PipeWireAudioRecorder(logger);
         });
 
         services.AddSingleton<ISpeechTranscriber>(sp =>
@@ -121,26 +120,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITextOutputService, TextOutputService>();
         services.AddSingleton<IRecordingModeManager, RecordingModeManager>();
 
+        // Recording workflow (extracted from DictationWorker for SRP)
+        services.AddSingleton<IRecordingWorkflow, RecordingWorkflow>();
+
         // HTTP client for DictationWorker
         services.AddHttpClient<DictationWorker>();
-
-        // Bluetooth mouse monitor (remote push-to-talk trigger)
-        services.AddSingleton(sp =>
-        {
-            var logger = sp.GetRequiredService<ILogger<BluetoothMouseMonitor>>();
-            var keyboardMonitor = sp.GetRequiredService<IKeyboardMonitor>();
-            var keySimulator = sp.GetRequiredService<IKeySimulator>();
-            return new BluetoothMouseMonitor(logger, keyboardMonitor, keySimulator, "BluetoothMouse3600", bluetoothTripleClickCommand);
-        });
-
-        // USB Optical Mouse monitor (secondary push-to-talk trigger)
-        services.AddSingleton(sp =>
-        {
-            var logger = sp.GetRequiredService<ILogger<UsbMouseMonitor>>();
-            var keyboardMonitor = sp.GetRequiredService<IKeyboardMonitor>();
-            var keySimulator = sp.GetRequiredService<IKeySimulator>();
-            return new UsbMouseMonitor(logger, keyboardMonitor, keySimulator);
-        });
 
         // Register worker as singleton first (so we can resolve it for interfaces)
         services.AddSingleton<DictationWorker>();

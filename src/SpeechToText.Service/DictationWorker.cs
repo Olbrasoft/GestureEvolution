@@ -1,4 +1,5 @@
 using Olbrasoft.SpeechToText.Audio;
+using Olbrasoft.SpeechToText.Core.Extensions;
 using Olbrasoft.SpeechToText.Service.Services;
 
 namespace Olbrasoft.SpeechToText.Service;
@@ -14,61 +15,39 @@ public class DictationWorker : BackgroundService, IRecordingStateProvider, IReco
     private readonly ILogger<DictationWorker> _logger;
     private readonly IConfiguration _configuration;
     private readonly IKeyboardMonitor _keyboardMonitor;
-    private readonly IAudioRecorder _audioRecorder;
-    private readonly ITranscriptionProcessor _transcriptionProcessor;
-    private readonly ITextOutputService _textOutputService;
+    private readonly IRecordingWorkflow _recordingWorkflow;
     private readonly IPttNotifier _pttNotifier;
     private readonly ManualMuteService _manualMuteService;
-    private readonly IRecordingModeManager _recordingModeManager;
 
-    private bool _isRecording;
     private bool _isTranscribing;
-    private DateTime? _recordingStartTime;
     private KeyCode _triggerKey;
 
     // IRecordingStateProvider implementation
     /// <inheritdoc />
-    public bool IsRecording => _isRecording;
+    public bool IsRecording => _recordingWorkflow.IsRecording;
 
     /// <inheritdoc />
     public bool IsTranscribing => _isTranscribing;
 
     /// <inheritdoc />
-    public TimeSpan? RecordingDuration => _recordingStartTime.HasValue
-        ? DateTime.UtcNow - _recordingStartTime.Value
+    public TimeSpan? RecordingDuration => _recordingWorkflow.RecordingStartTime.HasValue
+        ? DateTime.UtcNow - _recordingWorkflow.RecordingStartTime.Value
         : null;
-
-    /// <summary>
-    /// Stores the recording mode context for state restoration.
-    /// </summary>
-    private RecordingModeContext? _recordingModeContext;
-
-    /// <summary>
-    /// CancellationTokenSource for the current transcription operation.
-    /// Allows canceling Whisper transcription when user presses Escape.
-    /// </summary>
-    private CancellationTokenSource? _transcriptionCts;
 
     public DictationWorker(
         ILogger<DictationWorker> logger,
         IConfiguration configuration,
         IKeyboardMonitor keyboardMonitor,
-        IAudioRecorder audioRecorder,
-        ITranscriptionProcessor transcriptionProcessor,
-        ITextOutputService textOutputService,
+        IRecordingWorkflow recordingWorkflow,
         IPttNotifier pttNotifier,
-        ManualMuteService manualMuteService,
-        IRecordingModeManager recordingModeManager)
+        ManualMuteService manualMuteService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _keyboardMonitor = keyboardMonitor ?? throw new ArgumentNullException(nameof(keyboardMonitor));
-        _audioRecorder = audioRecorder ?? throw new ArgumentNullException(nameof(audioRecorder));
-        _transcriptionProcessor = transcriptionProcessor ?? throw new ArgumentNullException(nameof(transcriptionProcessor));
-        _textOutputService = textOutputService ?? throw new ArgumentNullException(nameof(textOutputService));
+        _recordingWorkflow = recordingWorkflow ?? throw new ArgumentNullException(nameof(recordingWorkflow));
         _pttNotifier = pttNotifier ?? throw new ArgumentNullException(nameof(pttNotifier));
         _manualMuteService = manualMuteService ?? throw new ArgumentNullException(nameof(manualMuteService));
-        _recordingModeManager = recordingModeManager ?? throw new ArgumentNullException(nameof(recordingModeManager));
 
         // Load configuration
         var triggerKeyName = _configuration.GetValue<string>("PushToTalkDictation:TriggerKey", "CapsLock");
@@ -110,9 +89,9 @@ public class DictationWorker : BackgroundService, IRecordingStateProvider, IReco
             _keyboardMonitor.KeyPressed -= OnKeyPressed;
             _keyboardMonitor.KeyReleased -= OnKeyReleased;
 
-            if (_isRecording)
+            if (_recordingWorkflow.IsRecording)
             {
-                await StopRecordingAsync();
+                await _recordingWorkflow.StopAndProcessAsync();
             }
         }
     }
@@ -151,17 +130,17 @@ public class DictationWorker : BackgroundService, IRecordingStateProvider, IReco
         // Handle ScrollLock (ManualMute) - toggle on key release
         if (e.Key == KeyCode.ScrollLock)
         {
-            _ = Task.Run(async () => await HandleScrollLockPressedAsync());
+            Task.Run(async () => await HandleScrollLockPressedAsync()).FireAndForget(_logger, "HandleScrollLockPressed");
             return;
         }
 
         // Handle Escape - cancel ongoing transcription
         if (e.Key == KeyCode.Escape)
         {
-            if (_isTranscribing && _transcriptionCts != null)
+            if (_isTranscribing)
             {
                 _logger.LogInformation("Escape pressed - canceling transcription");
-                _transcriptionCts.Cancel();
+                _recordingWorkflow.CancelTranscription();
             }
             return;
         }
@@ -175,165 +154,42 @@ public class DictationWorker : BackgroundService, IRecordingStateProvider, IReco
         Thread.Sleep(50);
 
         var capsLockOn = _keyboardMonitor.IsCapsLockOn();
-        _logger.LogDebug("CapsLock released - LED state: {CapsLockOn}, Recording state: {Recording}", capsLockOn, _isRecording);
+        _logger.LogDebug("CapsLock released - LED state: {CapsLockOn}, Recording state: {Recording}", capsLockOn, _recordingWorkflow.IsRecording);
 
-        if (capsLockOn && !_isRecording)
+        if (capsLockOn && !_recordingWorkflow.IsRecording)
         {
             // CapsLock is ON and not recording - start recording
             _logger.LogInformation("CapsLock ON - starting dictation");
-            _ = Task.Run(async () => await StartRecordingAsync());
+            Task.Run(async () => await StartRecordingAsync()).FireAndForget(_logger, "StartRecording");
         }
-        else if (!capsLockOn && _isRecording)
+        else if (!capsLockOn && _recordingWorkflow.IsRecording)
         {
             // CapsLock is OFF and recording - stop and transcribe
             _logger.LogInformation("CapsLock OFF - stopping dictation");
-            _ = Task.Run(async () => await StopRecordingAsync());
+            Task.Run(async () => await StopRecordingAsync()).FireAndForget(_logger, "StopRecording");
         }
         else
         {
             _logger.LogDebug("CapsLock state ({CapsLockOn}) matches recording state ({Recording}) - no action needed",
-                capsLockOn, _isRecording);
+                capsLockOn, _recordingWorkflow.IsRecording);
         }
     }
 
     private async Task StartRecordingAsync()
     {
-        if (_isRecording)
-        {
-            _logger.LogWarning("Recording is already in progress");
-            return;
-        }
-
-        try
-        {
-            _isRecording = true;
-            _recordingStartTime = DateTime.UtcNow;
-
-            _logger.LogInformation("Starting audio recording...");
-
-            // Enter recording mode (stops TTS, creates lock, saves mute state)
-            _recordingModeContext = await _recordingModeManager.EnterRecordingModeAsync();
-
-            // Notify clients about recording start
-            await _pttNotifier.NotifyRecordingStartedAsync();
-
-            // Start recording (runs until cancelled)
-            var cts = new CancellationTokenSource();
-            await _audioRecorder.StartRecordingAsync(cts.Token);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to start recording");
-            _isRecording = false;
-            _recordingStartTime = null;
-        }
+        await _recordingWorkflow.StartRecordingAsync();
     }
 
     private async Task StopRecordingAsync()
     {
-        if (!_isRecording)
-        {
-            _logger.LogWarning("No recording in progress");
-            return;
-        }
-
-        double durationSeconds = 0;
-
+        _isTranscribing = true;
         try
         {
-            _logger.LogInformation("Stopping audio recording...");
-
-            await _audioRecorder.StopRecordingAsync();
-
-            var recordedData = _audioRecorder.GetRecordedData();
-            _logger.LogInformation("Recording stopped. Captured {ByteCount} bytes", recordedData.Length);
-
-            // Calculate duration
-            if (_recordingStartTime.HasValue)
-            {
-                durationSeconds = (DateTime.UtcNow - _recordingStartTime.Value).TotalSeconds;
-                _logger.LogInformation("Total recording duration: {Duration:F2}s", durationSeconds);
-            }
-
-            // Notify clients about recording stop
-            await _pttNotifier.NotifyRecordingStoppedAsync(durationSeconds);
-
-            if (recordedData.Length > 0)
-            {
-                // Show icon and play sound IMMEDIATELY (before Whisper processing)
-                await _pttNotifier.NotifyTranscriptionStartedAsync();
-
-                // Create cancellation token for transcription (can be cancelled with Escape key)
-                _transcriptionCts = new CancellationTokenSource();
-                _isTranscribing = true;
-
-                try
-                {
-                    _logger.LogInformation("Starting transcription... (press Escape to cancel)");
-                    var result = await _transcriptionProcessor.ProcessAsync(recordedData, _transcriptionCts.Token);
-
-                    if (result.Success && !string.IsNullOrWhiteSpace(result.Text))
-                    {
-                        // Notify clients about successful transcription
-                        await _pttNotifier.NotifyTranscriptionCompletedAsync(result.Text, result.Confidence);
-
-                        // Output text (types and saves to history)
-                        await _textOutputService.OutputTextAsync(result.Text);
-                    }
-                    else if (result.WasHallucination)
-                    {
-                        // Play rejection sound for hallucination
-                        _ = Task.Run(async () => await _textOutputService.PlayRejectionSoundAsync());
-                        await _pttNotifier.NotifyTranscriptionFailedAsync(result.ErrorMessage ?? "Whisper hallucination filtered");
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Transcription failed: {Error}", result.ErrorMessage);
-                        await _pttNotifier.NotifyTranscriptionFailedAsync(result.ErrorMessage ?? "Transcription failed");
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    _logger.LogInformation("Transcription cancelled by user (Escape key pressed)");
-
-                    // Play rejection sound for cancellation
-                    _ = Task.Run(async () => await _textOutputService.PlayRejectionSoundAsync());
-
-                    await _pttNotifier.NotifyTranscriptionFailedAsync("Transcription cancelled");
-                }
-                finally
-                {
-                    _isTranscribing = false;
-                    _transcriptionCts?.Dispose();
-                    _transcriptionCts = null;
-                }
-            }
-            else
-            {
-                _logger.LogWarning("No audio data recorded");
-
-                // Play rejection sound for empty recording
-                _ = Task.Run(async () => await _textOutputService.PlayRejectionSoundAsync());
-
-                await _pttNotifier.NotifyTranscriptionFailedAsync("No audio data recorded");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to stop recording");
-            await _pttNotifier.NotifyTranscriptionFailedAsync(ex.Message);
+            await _recordingWorkflow.StopAndProcessAsync();
         }
         finally
         {
-            _isRecording = false;
-            _recordingStartTime = null;
-
-            // Exit recording mode (releases lock, restores mute state)
-            if (_recordingModeContext != null)
-            {
-                await _recordingModeManager.ExitRecordingModeAsync(_recordingModeContext);
-                _recordingModeContext = null;
-            }
+            _isTranscribing = false;
         }
     }
 
@@ -341,9 +197,9 @@ public class DictationWorker : BackgroundService, IRecordingStateProvider, IReco
     {
         _logger.LogInformation("Dictation service stopping...");
 
-        if (_isRecording)
+        if (_recordingWorkflow.IsRecording)
         {
-            await StopRecordingAsync();
+            await _recordingWorkflow.StopAndProcessAsync(cancellationToken);
         }
 
         await _keyboardMonitor.StopMonitoringAsync();
@@ -356,7 +212,7 @@ public class DictationWorker : BackgroundService, IRecordingStateProvider, IReco
     /// <inheritdoc />
     public async Task<bool> StartRecordingRemoteAsync(CancellationToken cancellationToken = default)
     {
-        if (_isRecording)
+        if (_recordingWorkflow.IsRecording)
         {
             _logger.LogWarning("Remote start requested but recording is already in progress");
             return false;
@@ -370,7 +226,7 @@ public class DictationWorker : BackgroundService, IRecordingStateProvider, IReco
     /// <inheritdoc />
     public async Task<bool> StopRecordingRemoteAsync(CancellationToken cancellationToken = default)
     {
-        if (!_isRecording)
+        if (!_recordingWorkflow.IsRecording)
         {
             _logger.LogWarning("Remote stop requested but no recording in progress");
             return false;
@@ -384,9 +240,9 @@ public class DictationWorker : BackgroundService, IRecordingStateProvider, IReco
     /// <inheritdoc />
     public async Task<bool> ToggleRecordingAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Remote recording toggle requested, current state: {IsRecording}", _isRecording);
+        _logger.LogInformation("Remote recording toggle requested, current state: {IsRecording}", _recordingWorkflow.IsRecording);
 
-        if (_isRecording)
+        if (_recordingWorkflow.IsRecording)
         {
             await StopRecordingAsync();
             return false; // Now stopped

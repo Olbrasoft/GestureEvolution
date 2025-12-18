@@ -22,17 +22,6 @@ public partial class InputDeviceDiscovery : IInputDeviceDiscovery
     /// <inheritdoc/>
     public string? FindDevice(string deviceNamePattern, IEnumerable<string>? excludedDevices = null)
     {
-        return FindDeviceInternal(deviceNamePattern, excludedDevices, requireMouse: false);
-    }
-
-    /// <inheritdoc/>
-    public string? FindMouseDevice(string deviceNamePattern, IEnumerable<string>? excludedDevices = null)
-    {
-        return FindDeviceInternal(deviceNamePattern, excludedDevices, requireMouse: true);
-    }
-
-    private string? FindDeviceInternal(string deviceNamePattern, IEnumerable<string>? excludedDevices, bool requireMouse)
-    {
         if (!File.Exists(EvdevConstants.DevicesPath))
         {
             _logger?.LogDebug("Devices file not found: {Path}", EvdevConstants.DevicesPath);
@@ -57,14 +46,6 @@ public partial class InputDeviceDiscovery : IInputDeviceDiscovery
                 // Check if this device matches our pattern
                 if (!section.Contains(deviceNamePattern, StringComparison.OrdinalIgnoreCase))
                     continue;
-
-                // If mouse required, check for mouse in handlers or name
-                if (requireMouse &&
-                    !section.Contains("mouse", StringComparison.OrdinalIgnoreCase) &&
-                    !section.Contains("Mouse", StringComparison.Ordinal))
-                {
-                    continue;
-                }
 
                 // Find the event handler
                 var eventPath = ExtractEventPath(section);

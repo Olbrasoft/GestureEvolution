@@ -13,7 +13,7 @@
 
     <!-- Debian package metadata -->
     <PackageId>speech-to-text</PackageId>
-    <Version>1.0.3</Version>
+    <Version>1.0.11</Version>
     <Description>Voice transcription using Whisper AI</Description>
     <Authors>Olbrasoft</Authors>
     <DebMaintainer>Olbrasoft</DebMaintainer>
@@ -22,6 +22,11 @@
   <ItemGroup>
     <ProjectReference Include="..\SpeechToText.Core\SpeechToText.Core.csproj" />
     <ProjectReference Include="..\SpeechToText.Linux\SpeechToText.Linux.csproj" />
+  </ItemGroup>
+
+  <!-- ASP.NET Core for embedded web server and SignalR -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>
@@ -75,6 +80,11 @@
     <None Include="sounds\*.mp3" Link="sounds\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <!-- Copy wwwroot for web remote control -->
+  <ItemGroup>
+    <None Include="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Freedesktop files for debian package -->

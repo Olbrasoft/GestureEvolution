@@ -228,7 +228,7 @@ public class SystemEnvironmentProviderTests
     {
         // Arrange
         var provider = new SystemEnvironmentProvider();
-        var testVarName = "SPEECHTOTEXT_TEST_NONEXISTENT_VAR_12345";
+        var testVarName = "PUSHTOTALK_TEST_NONEXISTENT_VAR_12345";
 
         // Act
         var result = provider.GetEnvironmentVariable(testVarName);

@@ -19,8 +19,8 @@ internal class StatusNotifierItemHandler : OrgKdeStatusNotifierItemHandler
 
         // Set default values
         Category = "ApplicationStatus";
-        Id = "speech-to-text";
-        Title = "Speech to Text";
+        Id = "push-to-talk";
+        Title = "Push To Talk";
         Status = "Active";
         IconName = "";
         IconPixmap = Array.Empty<(int, int, byte[])>();
@@ -86,7 +86,7 @@ internal class StatusNotifierItemHandler : OrgKdeStatusNotifierItemHandler
     public void SetAnimationFrame((int, int, byte[]) dbusPixmap, int frameIndex)
     {
         // Change Id with timestamp to bust GNOME's icon cache
-        Id = $"speech-to-text-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}-{frameIndex}";
+        Id = $"ptt-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}-{frameIndex}";
 
         IconPixmap = new[] { dbusPixmap };
         IconName = "";

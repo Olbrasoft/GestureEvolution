@@ -1,12 +1,12 @@
 [Desktop Entry]
-Name=Speech To Text
+Name=Push To Talk
 GenericName=Dictation Tool
 Comment=Voice transcription using Whisper AI
-Exec=speech-to-text
-Icon=io.olbrasoft.SpeechToText
+Exec=push-to-talk
+Icon=io.olbrasoft.PushToTalk
 Terminal=false
 Type=Application
 Categories=AudioVideo;Audio;Utility;Accessibility;
-Keywords=voice;whisper;dictation;transcription;speech;microphone;
+Keywords=voice;whisper;dictation;transcription;ptt;microphone;
 StartupNotify=false
 X-GNOME-UsesNotifications=false

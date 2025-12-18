@@ -1,6 +1,6 @@
 <!--
 ============================================================================================================================================
-/home/jirka/Olbrasoft/SpeechToText/src/Olbrasoft.SpeechToText.App/Olbrasoft.SpeechToText.App.csproj
+/home/jirka/Olbrasoft/PushToTalk/src/Olbrasoft.PushToTalk.App/Olbrasoft.PushToTalk.App.csproj
 ============================================================================================================================================
 -->
 <Project DefaultTargets="Build" InitialTargets="NETStandardCompatError_Microsoft_Extensions_Configuration_Binder">
@@ -167,7 +167,7 @@ Copyright (c) .NET Foundation. All rights reserved.
 ============================================================================================================================================
   <Import Project="$(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).*.props" Condition="'$(ImportProjectExtensionProps)' == 'true' and exists('$(MSBuildProjectExtensionsPath)')">
 
-/home/jirka/Olbrasoft/SpeechToText/src/Olbrasoft.SpeechToText.App/obj/Olbrasoft.SpeechToText.App.csproj.nuget.g.props
+/home/jirka/Olbrasoft/PushToTalk/src/Olbrasoft.PushToTalk.App/obj/Olbrasoft.PushToTalk.App.csproj.nuget.g.props
 ============================================================================================================================================
 -->
   <PropertyGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' " xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
@@ -197,7 +197,7 @@ Copyright (c) .NET Foundation. All rights reserved.
 ============================================================================================================================================
   </Import>
 
-/home/jirka/Olbrasoft/SpeechToText/src/Olbrasoft.SpeechToText.App/obj/Olbrasoft.SpeechToText.App.csproj.nuget.g.props
+/home/jirka/Olbrasoft/PushToTalk/src/Olbrasoft.PushToTalk.App/obj/Olbrasoft.PushToTalk.App.csproj.nuget.g.props
 ============================================================================================================================================
 -->
   <!--</ImportGroup>-->
@@ -1478,7 +1478,7 @@ Copyright (c) .NET Foundation. All rights reserved.
 ============================================================================================================================================
   </Import>
 
-/home/jirka/Olbrasoft/SpeechToText/src/Olbrasoft.SpeechToText.App/Olbrasoft.SpeechToText.App.csproj
+/home/jirka/Olbrasoft/PushToTalk/src/Olbrasoft.PushToTalk.App/Olbrasoft.PushToTalk.App.csproj
 ============================================================================================================================================
 -->
   <PropertyGroup>
@@ -1487,17 +1487,17 @@ Copyright (c) .NET Foundation. All rights reserved.
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>Olbrasoft.SpeechToText.App</RootNamespace>
-    <AssemblyName>speech-to-text</AssemblyName>
+    <RootNamespace>Olbrasoft.PushToTalk.App</RootNamespace>
+    <AssemblyName>push-to-talk</AssemblyName>
     <!-- Debian package metadata -->
-    <PackageId>speech-to-text</PackageId>
+    <PackageId>push-to-talk</PackageId>
     <Version>1.0.3</Version>
     <Description>Voice transcription using Whisper AI</Description>
     <Authors>Olbrasoft</Authors>
     <DebMaintainer>Olbrasoft</DebMaintainer>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Olbrasoft.SpeechToText\Olbrasoft.SpeechToText.csproj" />
+    <ProjectReference Include="..\Olbrasoft.PushToTalk\Olbrasoft.PushToTalk.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
@@ -1547,52 +1547,52 @@ Copyright (c) .NET Foundation. All rights reserved.
   <!-- Freedesktop files for debian package -->
   <ItemGroup>
     <!-- Desktop entry -->
-    <Content Include="..\..\data\io.olbrasoft.SpeechToText.desktop">
+    <Content Include="..\..\data\io.olbrasoft.PushToTalk.desktop">
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <LinuxPath>/usr/share/applications/io.olbrasoft.SpeechToText.desktop</LinuxPath>
+      <LinuxPath>/usr/share/applications/io.olbrasoft.PushToTalk.desktop</LinuxPath>
     </Content>
     <!-- AppStream metainfo -->
-    <Content Include="..\..\data\io.olbrasoft.SpeechToText.metainfo.xml">
+    <Content Include="..\..\data\io.olbrasoft.PushToTalk.metainfo.xml">
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <LinuxPath>/usr/share/metainfo/io.olbrasoft.SpeechToText.metainfo.xml</LinuxPath>
+      <LinuxPath>/usr/share/metainfo/io.olbrasoft.PushToTalk.metainfo.xml</LinuxPath>
     </Content>
     <!-- Icons - scalable -->
-    <Content Include="..\..\data\icons\hicolor\scalable\apps\io.olbrasoft.SpeechToText.svg">
+    <Content Include="..\..\data\icons\hicolor\scalable\apps\io.olbrasoft.PushToTalk.svg">
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <LinuxPath>/usr/share/icons/hicolor/scalable/apps/io.olbrasoft.SpeechToText.svg</LinuxPath>
+      <LinuxPath>/usr/share/icons/hicolor/scalable/apps/io.olbrasoft.PushToTalk.svg</LinuxPath>
     </Content>
     <!-- Icons - various sizes (Link with unique paths to avoid conflicts) -->
-    <Content Include="..\..\data\icons\hicolor\16x16\apps\io.olbrasoft.SpeechToText.png" Link="icons\16x16\io.olbrasoft.SpeechToText.png">
+    <Content Include="..\..\data\icons\hicolor\16x16\apps\io.olbrasoft.PushToTalk.png" Link="icons\16x16\io.olbrasoft.PushToTalk.png">
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <LinuxPath>/usr/share/icons/hicolor/16x16/apps/io.olbrasoft.SpeechToText.png</LinuxPath>
+      <LinuxPath>/usr/share/icons/hicolor/16x16/apps/io.olbrasoft.PushToTalk.png</LinuxPath>
     </Content>
-    <Content Include="..\..\data\icons\hicolor\22x22\apps\io.olbrasoft.SpeechToText.png" Link="icons\22x22\io.olbrasoft.SpeechToText.png">
+    <Content Include="..\..\data\icons\hicolor\22x22\apps\io.olbrasoft.PushToTalk.png" Link="icons\22x22\io.olbrasoft.PushToTalk.png">
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <LinuxPath>/usr/share/icons/hicolor/22x22/apps/io.olbrasoft.SpeechToText.png</LinuxPath>
+      <LinuxPath>/usr/share/icons/hicolor/22x22/apps/io.olbrasoft.PushToTalk.png</LinuxPath>
     </Content>
-    <Content Include="..\..\data\icons\hicolor\24x24\apps\io.olbrasoft.SpeechToText.png" Link="icons\24x24\io.olbrasoft.SpeechToText.png">
+    <Content Include="..\..\data\icons\hicolor\24x24\apps\io.olbrasoft.PushToTalk.png" Link="icons\24x24\io.olbrasoft.PushToTalk.png">
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <LinuxPath>/usr/share/icons/hicolor/24x24/apps/io.olbrasoft.SpeechToText.png</LinuxPath>
+      <LinuxPath>/usr/share/icons/hicolor/24x24/apps/io.olbrasoft.PushToTalk.png</LinuxPath>
     </Content>
-    <Content Include="..\..\data\icons\hicolor\32x32\apps\io.olbrasoft.SpeechToText.png" Link="icons\32x32\io.olbrasoft.SpeechToText.png">
+    <Content Include="..\..\data\icons\hicolor\32x32\apps\io.olbrasoft.PushToTalk.png" Link="icons\32x32\io.olbrasoft.PushToTalk.png">
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <LinuxPath>/usr/share/icons/hicolor/32x32/apps/io.olbrasoft.SpeechToText.png</LinuxPath>
+      <LinuxPath>/usr/share/icons/hicolor/32x32/apps/io.olbrasoft.PushToTalk.png</LinuxPath>
     </Content>
-    <Content Include="..\..\data\icons\hicolor\48x48\apps\io.olbrasoft.SpeechToText.png" Link="icons\48x48\io.olbrasoft.SpeechToText.png">
+    <Content Include="..\..\data\icons\hicolor\48x48\apps\io.olbrasoft.PushToTalk.png" Link="icons\48x48\io.olbrasoft.PushToTalk.png">
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <LinuxPath>/usr/share/icons/hicolor/48x48/apps/io.olbrasoft.SpeechToText.png</LinuxPath>
+      <LinuxPath>/usr/share/icons/hicolor/48x48/apps/io.olbrasoft.PushToTalk.png</LinuxPath>
     </Content>
-    <Content Include="..\..\data\icons\hicolor\64x64\apps\io.olbrasoft.SpeechToText.png" Link="icons\64x64\io.olbrasoft.SpeechToText.png">
+    <Content Include="..\..\data\icons\hicolor\64x64\apps\io.olbrasoft.PushToTalk.png" Link="icons\64x64\io.olbrasoft.PushToTalk.png">
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <LinuxPath>/usr/share/icons/hicolor/64x64/apps/io.olbrasoft.SpeechToText.png</LinuxPath>
+      <LinuxPath>/usr/share/icons/hicolor/64x64/apps/io.olbrasoft.PushToTalk.png</LinuxPath>
     </Content>
-    <Content Include="..\..\data\icons\hicolor\128x128\apps\io.olbrasoft.SpeechToText.png" Link="icons\128x128\io.olbrasoft.SpeechToText.png">
+    <Content Include="..\..\data\icons\hicolor\128x128\apps\io.olbrasoft.PushToTalk.png" Link="icons\128x128\io.olbrasoft.PushToTalk.png">
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <LinuxPath>/usr/share/icons/hicolor/128x128/apps/io.olbrasoft.SpeechToText.png</LinuxPath>
+      <LinuxPath>/usr/share/icons/hicolor/128x128/apps/io.olbrasoft.PushToTalk.png</LinuxPath>
     </Content>
-    <Content Include="..\..\data\icons\hicolor\256x256\apps\io.olbrasoft.SpeechToText.png" Link="icons\256x256\io.olbrasoft.SpeechToText.png">
+    <Content Include="..\..\data\icons\hicolor\256x256\apps\io.olbrasoft.PushToTalk.png" Link="icons\256x256\io.olbrasoft.PushToTalk.png">
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <LinuxPath>/usr/share/icons/hicolor/256x256/apps/io.olbrasoft.SpeechToText.png</LinuxPath>
+      <LinuxPath>/usr/share/icons/hicolor/256x256/apps/io.olbrasoft.PushToTalk.png</LinuxPath>
     </Content>
   </ItemGroup>
   <!--
@@ -10444,7 +10444,7 @@ Copyright (c) .NET Foundation. All rights reserved.
 ============================================================================================================================================
   <Import Project="$(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).*.targets" Condition="'$(ImportProjectExtensionTargets)' == 'true' and exists('$(MSBuildProjectExtensionsPath)')">
 
-/home/jirka/Olbrasoft/SpeechToText/src/Olbrasoft.SpeechToText.App/obj/Olbrasoft.SpeechToText.App.csproj.nuget.g.targets
+/home/jirka/Olbrasoft/PushToTalk/src/Olbrasoft.PushToTalk.App/obj/Olbrasoft.PushToTalk.App.csproj.nuget.g.targets
 ============================================================================================================================================
 -->
   <!--<ImportGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">-->
@@ -10666,7 +10666,7 @@ Copyright (c) .NET Foundation. All rights reserved.
 ============================================================================================================================================
   </Import>
 
-/home/jirka/Olbrasoft/SpeechToText/src/Olbrasoft.SpeechToText.App/obj/Olbrasoft.SpeechToText.App.csproj.nuget.g.targets
+/home/jirka/Olbrasoft/PushToTalk/src/Olbrasoft.PushToTalk.App/obj/Olbrasoft.PushToTalk.App.csproj.nuget.g.targets
 ============================================================================================================================================
 -->
   <!--
@@ -10697,7 +10697,7 @@ Copyright (c) .NET Foundation. All rights reserved.
 ============================================================================================================================================
   </Import>
 
-/home/jirka/Olbrasoft/SpeechToText/src/Olbrasoft.SpeechToText.App/obj/Olbrasoft.SpeechToText.App.csproj.nuget.g.targets
+/home/jirka/Olbrasoft/PushToTalk/src/Olbrasoft.PushToTalk.App/obj/Olbrasoft.PushToTalk.App.csproj.nuget.g.targets
 ============================================================================================================================================
 -->
   <!--
@@ -10728,7 +10728,7 @@ Copyright (c) .NET Foundation. All rights reserved.
 ============================================================================================================================================
   </Import>
 
-/home/jirka/Olbrasoft/SpeechToText/src/Olbrasoft.SpeechToText.App/obj/Olbrasoft.SpeechToText.App.csproj.nuget.g.targets
+/home/jirka/Olbrasoft/PushToTalk/src/Olbrasoft.PushToTalk.App/obj/Olbrasoft.PushToTalk.App.csproj.nuget.g.targets
 ============================================================================================================================================
 -->
   <!--
@@ -10758,7 +10758,7 @@ Copyright (c) .NET Foundation. All rights reserved.
 ============================================================================================================================================
   </Import>
 
-/home/jirka/Olbrasoft/SpeechToText/src/Olbrasoft.SpeechToText.App/obj/Olbrasoft.SpeechToText.App.csproj.nuget.g.targets
+/home/jirka/Olbrasoft/PushToTalk/src/Olbrasoft.PushToTalk.App/obj/Olbrasoft.PushToTalk.App.csproj.nuget.g.targets
 ============================================================================================================================================
 -->
   <!--</ImportGroup>-->
@@ -17587,7 +17587,7 @@ Copyright (c) .NET Foundation. All rights reserved.
 ============================================================================================================================================
   </Import>
 
-/home/jirka/Olbrasoft/SpeechToText/src/Olbrasoft.SpeechToText.App/Olbrasoft.SpeechToText.App.csproj
+/home/jirka/Olbrasoft/PushToTalk/src/Olbrasoft.PushToTalk.App/Olbrasoft.PushToTalk.App.csproj
 ============================================================================================================================================
 -->
 </Project>

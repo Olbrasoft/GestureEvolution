@@ -6,20 +6,20 @@ using Olbrasoft.SpeechToText.Service.Services;
 namespace Olbrasoft.SpeechToText.Service;
 
 /// <summary>
-/// Extension methods for mapping SpeechToText API endpoints.
+/// Extension methods for mapping PushToTalk API endpoints.
 /// </summary>
 public static class EndpointExtensions
 {
     /// <summary>
-    /// Maps all SpeechToText API endpoints and SignalR hubs.
+    /// Maps all PushToTalk API endpoints and SignalR hubs.
     /// </summary>
-    public static WebApplication MapSpeechToTextEndpoints(this WebApplication app)
+    public static WebApplication MapPushToTalkEndpoints(this WebApplication app)
     {
         // Map SignalR hub
         app.MapHub<PttHub>("/hubs/ptt");
 
         // Health check endpoint
-        app.MapGet("/", () => Results.Ok(new { service = "Olbrasoft.SpeechToText", status = "running" }));
+        app.MapGet("/", () => Results.Ok(new { service = "Olbrasoft.PushToTalk", status = "running" }));
 
         // Repeat last transcription endpoint - copies last text to clipboard
         app.MapPost("/api/ptt/repeat", RepeatTranscriptionHandler);

@@ -123,9 +123,14 @@ public class DotoolTextTyper : ITextTyper
                 await wlPasteProcess.WaitForExitAsync(cancellationToken);
                 _logger.LogDebug("Saved original clipboard content ({Length} chars)", originalClipboard?.Length ?? 0);
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
-                _logger.LogDebug("Could not save clipboard: {Message}", ex.Message);
+                _logger.LogDebug("Could not save clipboard (invalid state): {Message}", ex.Message);
+                // Continue anyway - clipboard might be empty
+            }
+            catch (System.ComponentModel.Win32Exception ex)
+            {
+                _logger.LogDebug("Could not save clipboard (process error): {Message}", ex.Message);
                 // Continue anyway - clipboard might be empty
             }
 
@@ -210,9 +215,13 @@ public class DotoolTextTyper : ITextTyper
                     await restoreProcess.WaitForExitAsync(cancellationToken);
                     _logger.LogDebug("Restored original clipboard content");
                 }
-                catch (Exception ex)
+                catch (InvalidOperationException ex)
                 {
-                    _logger.LogWarning("Could not restore clipboard: {Message}", ex.Message);
+                    _logger.LogWarning("Could not restore clipboard (invalid state): {Message}", ex.Message);
+                }
+                catch (System.ComponentModel.Win32Exception ex)
+                {
+                    _logger.LogWarning("Could not restore clipboard (process error): {Message}", ex.Message);
                 }
             }
 
@@ -223,9 +232,75 @@ public class DotoolTextTyper : ITextTyper
             _logger.LogInformation("Text typing was cancelled");
             throw;
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
-            _logger.LogError(ex, "Failed to type text: {Text}", text);
+            _logger.LogError(ex, "Process error while typing text: {Text}", text);
+            throw;
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start process while typing text: {Text}", text);
+            throw;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task SendKeyAsync(string key, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            _logger.LogWarning("Attempted to send empty key");
+            return;
+        }
+
+        if (!IsAvailable)
+        {
+            _logger.LogError("dotool is not available on this system");
+            throw new InvalidOperationException("dotool is not available");
+        }
+
+        try
+        {
+            _logger.LogInformation("Sending key: {Key}", key);
+
+            var dotoolProcess = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "/bin/bash",
+                    Arguments = $"-c \"echo 'key {key}' | dotool\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            dotoolProcess.Start();
+            await dotoolProcess.WaitForExitAsync(cancellationToken);
+
+            if (dotoolProcess.ExitCode != 0)
+            {
+                var error = await dotoolProcess.StandardError.ReadToEndAsync(cancellationToken);
+                _logger.LogError("dotool failed with exit code {ExitCode}: {Error}", dotoolProcess.ExitCode, error);
+                throw new InvalidOperationException($"dotool failed: {error}");
+            }
+
+            _logger.LogDebug("Successfully sent key: {Key}", key);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Key send was cancelled");
+            throw;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Process error while sending key: {Key}", key);
+            throw;
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start process while sending key: {Key}", key);
             throw;
         }
     }
@@ -249,9 +324,14 @@ public class DotoolTextTyper : ITextTyper
             _logger.LogInformation("Non-terminal window detected: {WindowClass}, using Ctrl+V", windowClass ?? "(unknown)");
             return "ctrl+v";
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
-            _logger.LogWarning(ex, "Could not detect window class, defaulting to Ctrl+V");
+            _logger.LogWarning(ex, "Process error detecting window class, defaulting to Ctrl+V");
+            return "ctrl+v";
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to start process for window class detection, defaulting to Ctrl+V");
             return "ctrl+v";
         }
     }
@@ -329,9 +409,19 @@ public class DotoolTextTyper : ITextTyper
 
             return null;
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
-            _logger.LogDebug(ex, "Failed to get active window class via D-Bus");
+            _logger.LogDebug(ex, "Process error getting active window class via D-Bus");
+            return null;
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to start gdbus process for active window class");
+            return null;
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            _logger.LogDebug(ex, "Failed to parse D-Bus JSON response for window class");
             return null;
         }
     }

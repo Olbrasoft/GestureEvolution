@@ -3,8 +3,8 @@ using Microsoft.Extensions.Logging;
 namespace Olbrasoft.SpeechToText.TextInput;
 
 /// <summary>
-/// Factory for creating the appropriate ITextTyper based on the current display server.
-/// Automatically detects X11 vs Wayland and returns the correct implementation.
+/// Factory for creating ITextTyper instances.
+/// Uses dotool which works on both Wayland and X11 via Linux kernel uinput.
 /// </summary>
 public class TextTyperFactory : ITextTyperFactory
 {
@@ -46,42 +46,23 @@ public class TextTyperFactory : ITextTyperFactory
             return false;
         }
 
-        // Default to Wayland for modern systems (dotool works everywhere)
+        // Default to Wayland for modern systems
         return true;
     }
 
     /// <inheritdoc/>
     public ITextTyper Create()
     {
-        if (IsWayland())
+        var logger = _loggerFactory.CreateLogger<DotoolTextTyper>();
+        var dotoolTyper = new DotoolTextTyper(logger);
+
+        if (dotoolTyper.IsAvailable)
         {
-            var dotoolLogger = _loggerFactory.CreateLogger<DotoolTextTyper>();
-            var dotoolTyper = new DotoolTextTyper(dotoolLogger);
-
-            if (dotoolTyper.IsAvailable)
-            {
-                return dotoolTyper;
-            }
-
-            // Fallback to xdotool if dotool not available (XWayland apps)
-            var xdotoolLogger = _loggerFactory.CreateLogger<XdotoolTextTyper>();
-            return new XdotoolTextTyper(xdotoolLogger);
+            return dotoolTyper;
         }
-        else
-        {
-            // X11 - prefer xdotool
-            var xdotoolLogger = _loggerFactory.CreateLogger<XdotoolTextTyper>();
-            var xdotoolTyper = new XdotoolTextTyper(xdotoolLogger);
 
-            if (xdotoolTyper.IsAvailable)
-            {
-                return xdotoolTyper;
-            }
-
-            // Fallback to dotool (works on X11 too via uinput)
-            var dotoolLogger = _loggerFactory.CreateLogger<DotoolTextTyper>();
-            return new DotoolTextTyper(dotoolLogger);
-        }
+        throw new InvalidOperationException(
+            "dotool is not installed. Install it from: https://sr.ht/~geb/dotool/");
     }
 
     /// <inheritdoc/>

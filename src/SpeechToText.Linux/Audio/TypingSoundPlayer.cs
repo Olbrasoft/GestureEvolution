@@ -5,7 +5,7 @@ namespace Olbrasoft.SpeechToText.Audio;
 
 /// <summary>
 /// Service for playing typing sound during transcription.
-/// Uses pw-play (PipeWire) or paplay (PulseAudio) to play audio.
+/// Uses pw-cat (PipeWire) or paplay (PulseAudio) to play audio.
 /// </summary>
 public class TypingSoundPlayer : IDisposable
 {
@@ -169,7 +169,7 @@ public class TypingSoundPlayer : IDisposable
         var startInfo = new ProcessStartInfo
         {
             FileName = player,
-            Arguments = $"\"{soundPath}\"",
+            Arguments = GetPlayerArguments(soundPath),
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -217,14 +217,14 @@ public class TypingSoundPlayer : IDisposable
 
         if (string.IsNullOrEmpty(player))
         {
-            _logger.LogWarning("No audio player available (tried pw-play, paplay)");
+            _logger.LogWarning("No audio player available (tried pw-cat, paplay)");
             return;
         }
 
         var startInfo = new ProcessStartInfo
         {
             FileName = player,
-            Arguments = $"\"{_soundFilePath}\"",
+            Arguments = GetPlayerArguments(_soundFilePath!),
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -262,14 +262,14 @@ public class TypingSoundPlayer : IDisposable
         if (_cachedPlayer != null)
             return _cachedPlayer;
 
-        // Check for pw-play (PipeWire)
-        if (await IsCommandAvailableAsync("pw-play"))
+        // Check for pw-cat (PipeWire) - requires -p flag for playback mode
+        if (await IsCommandAvailableAsync("pw-cat"))
         {
-            _cachedPlayer = "pw-play";
+            _cachedPlayer = "pw-cat";
             return _cachedPlayer;
         }
 
-        // Check for paplay (PulseAudio)
+        // Fallback to paplay (PulseAudio) for systems without PipeWire
         if (await IsCommandAvailableAsync("paplay"))
         {
             _cachedPlayer = "paplay";
@@ -277,6 +277,17 @@ public class TypingSoundPlayer : IDisposable
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Gets the command line arguments for playing a sound file.
+    /// </summary>
+    private string GetPlayerArguments(string soundPath)
+    {
+        // pw-cat needs -p flag for playback mode, paplay doesn't
+        return _cachedPlayer == "pw-cat"
+            ? $"-p \"{soundPath}\""
+            : $"\"{soundPath}\"";
     }
 
     private static async Task<bool> IsCommandAvailableAsync(string command)

@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Olbrasoft.SpeechToText.Audio;
+using Olbrasoft.SpeechToText.Core.Configuration;
 using Olbrasoft.SpeechToText.Interop;
 using Olbrasoft.SpeechToText.Service.Models;
 using Olbrasoft.SpeechToText.Service.Services;
@@ -17,7 +19,8 @@ public class TranscriptionTrayService : IDisposable
     private readonly ILogger<TranscriptionTrayService> _logger;
     private readonly IPttNotifier _pttNotifier;
     private readonly TypingSoundPlayer _typingSoundPlayer;
-    
+    private readonly string _logsViewerUrl;
+
     private IntPtr _indicator;
     private string _iconsPath = null!;
     private string[] _frameNames = null!;
@@ -26,28 +29,33 @@ public class TranscriptionTrayService : IDisposable
     private bool _isAnimating;
     private bool _isInitialized;
     private bool _disposed;
-    
+
     // Animation settings
     private const uint AnimationIntervalMs = 200;
     private const int FrameCount = 5;
-    
+
     // Keep callbacks alive to prevent GC
     private GObject.GCallback? _logsCallback;
     private GObject.GCallback? _quitCallback;
     private GLib.GSourceFunc? _animationCallback;
     private GLib.GSourceFunc? _showCallback;
     private GLib.GSourceFunc? _hideCallback;
-    
+
     private Action? _onQuitRequested;
 
     public TranscriptionTrayService(
         ILogger<TranscriptionTrayService> logger,
         IPttNotifier pttNotifier,
-        TypingSoundPlayer typingSoundPlayer)
+        TypingSoundPlayer typingSoundPlayer,
+        IConfiguration? configuration = null)
     {
         _logger = logger;
         _pttNotifier = pttNotifier;
         _typingSoundPlayer = typingSoundPlayer;
+
+        var endpoints = new ServiceEndpoints();
+        configuration?.GetSection(ServiceEndpoints.SectionName).Bind(endpoints);
+        _logsViewerUrl = endpoints.LogsViewer;
     }
 
     /// <summary>
@@ -235,11 +243,10 @@ public class TranscriptionTrayService : IDisposable
     {
         try
         {
-            var url = "http://127.0.0.1:5052";
             Process.Start(new ProcessStartInfo
             {
                 FileName = "xdg-open",
-                Arguments = url,
+                Arguments = _logsViewerUrl,
                 UseShellExecute = false,
                 CreateNoWindow = true
             });

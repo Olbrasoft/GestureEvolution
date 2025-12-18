@@ -30,7 +30,7 @@ public sealed class SingleInstanceLock : IDisposable
     /// </summary>
     /// <param name="lockFilePath">Path to the lock file.</param>
     /// <returns>A lock instance (check IsAcquired to see if lock was obtained).</returns>
-    public static SingleInstanceLock TryAcquire(string lockFilePath = "/tmp/speech-to-text.lock")
+    public static SingleInstanceLock TryAcquire(string lockFilePath = "/tmp/push-to-talk.lock")
     {
         var lockInstance = new SingleInstanceLock(lockFilePath);
 

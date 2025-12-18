@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Olbrasoft.SpeechToText.Core.Extensions;
 
 namespace Olbrasoft.SpeechToText;
 
@@ -138,7 +139,7 @@ public class MultiClickDetector : IMultiClickDetector
         _timerCts = new CancellationTokenSource();
         var cts = _timerCts;
 
-        _ = Task.Run(async () =>
+        var task = Task.Run(async () =>
         {
             try
             {
@@ -161,6 +162,12 @@ public class MultiClickDetector : IMultiClickDetector
                 // Expected when cancelled by next click
             }
         });
+
+        // Add error handling if logger is available
+        if (_logger != null)
+        {
+            task.FireAndForget(_logger, $"ClickTimer_{_name}");
+        }
     }
 
     private void CancelTimer()

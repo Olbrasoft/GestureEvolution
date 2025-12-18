@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Olbrasoft.SpeechToText.Core.Configuration;
 
 namespace Olbrasoft.SpeechToText.App.Services;
 
@@ -23,8 +24,12 @@ public class VirtualAssistantClient : IVirtualAssistantClient
     {
         _logger = logger;
         _httpClient = httpClient;
+
+        var endpoints = new ServiceEndpoints();
+        configuration.GetSection(ServiceEndpoints.SectionName).Bind(endpoints);
+
         _baseUrl = configuration.GetValue<string>("VirtualAssistant:BaseUrl")
-            ?? "http://localhost:5055";
+            ?? endpoints.VirtualAssistant;
         _timeoutSeconds = configuration.GetValue<int>("VirtualAssistant:TimeoutSeconds", 30);
     }
 

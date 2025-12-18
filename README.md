@@ -1,97 +1,58 @@
-# SpeechToText
+# PushToTalk
 
-[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
-[![Platform](https://img.shields.io/badge/Platform-Linux-FCC624)](https://www.linux.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Auto Deploy](https://img.shields.io/badge/auto--deploy-enabled-green)](https://github.com/Olbrasoft/PushToTalk)
 
-Linux push-to-talk dictation. CapsLock triggers audio capture, Whisper transcribes, xdotool/dotool types result.
+Push-to-Talk functionality for Linux voice assistant. Monitors mouse buttons and triggers speech-to-text recording.
 
-## Features
+## Getting Started
 
-- Push-to-talk via CapsLock (configurable)
-- Whisper.net with CUDA GPU acceleration
-- D-Bus system tray with animated icons
-- Multi-trigger: keyboard, BT mouse, USB mouse
-- X11 (xdotool) and Wayland (dotool) support
-- SignalR hub for integrations
+### Prerequisites
 
-## Quick Start
+- .NET 10 SDK
+- Linux (tested on Debian/Ubuntu)
+- libevdev (for mouse button monitoring)
+
+### Installation
 
 ```bash
-git clone https://github.com/Olbrasoft/SpeechToText.git
-cd SpeechToText
+git clone https://github.com/Olbrasoft/PushToTalk.git
+cd PushToTalk
 dotnet build
-dotnet test
-dotnet run --project src/SpeechToText.Service
 ```
 
-## Requirements
-
-| Requirement | Notes |
-|-------------|-------|
-| .NET 10 | Required |
-| Linux | Debian 13+, ALSA |
-| NVIDIA GPU | Optional (CUDA) |
-| Whisper Model | [GGML format](https://huggingface.co/ggerganov/whisper.cpp) |
+### Running Tests
 
 ```bash
-# Debian/Ubuntu
-sudo apt install alsa-utils xdotool libgtk-3-dev libayatana-appindicator3-dev
-# Wayland: sudo apt install dotool
+dotnet test
+```
+
+## Project Structure
+
+```
+PushToTalk/
+├── src/
+│   ├── PushToTalk.Core/           # Core logic and interfaces
+│   ├── PushToTalk.Linux/          # Linux-specific implementations
+│   ├── PushToTalk.App/            # Desktop application
+│   └── PushToTalk.Service/        # Background service
+├── tests/
+│   ├── PushToTalk.Core.Tests/
+│   ├── PushToTalk.Linux.Tests/
+│   ├── PushToTalk.App.Tests/
+│   └── PushToTalk.Service.Tests/
+├── assets/                        # Icons and resources
+├── data/                          # Desktop/metainfo files
+├── debian/                        # Debian packaging scripts
+├── .github/workflows/             # CI/CD
+└── PushToTalk.sln
 ```
 
 ## Architecture
 
-```
-Presentation: SpeechToText.App, SpeechToText.Service
-Core:         SpeechToText.Core (interfaces, models)
-Infra:        SpeechToText.Linux (ALSA, evdev, Whisper, GTK)
-```
-
-**Note:** Project names are `SpeechToText.*`, namespaces are `Olbrasoft.SpeechToText.*`.
-
-## Projects
-
-| Project | Purpose |
-|---------|---------|
-| `SpeechToText.Core` | Platform-agnostic interfaces and models |
-| `SpeechToText.Linux` | Linux implementations (ALSA, evdev, Whisper) |
-| `SpeechToText.App` | Desktop app with tray icon |
-| `SpeechToText.Service` | ASP.NET Core service + SignalR |
-
-## Configuration
-
-`appsettings.json`:
-
-```json
-{
-  "PushToTalkDictation": {
-    "KeyboardDevice": "/dev/input/by-id/...",
-    "TriggerKey": "CapsLock",
-    "GgmlModelPath": "/path/to/ggml-large-v3.bin",
-    "WhisperLanguage": "cs"
-  }
-}
-```
-
-## SignalR Hub
-
-Endpoint: `/hubs/ptt`
-
-Events: `RecordingStarted`, `RecordingStopped`, `TranscriptionComplete(text)`, `Error(message)`
-
-## Tests
-
-39 unit tests (xUnit + Moq) in 4 test projects.
-
-```bash
-dotnet test
-```
-
-## Documentation
-
-[Wiki](https://github.com/Olbrasoft/SpeechToText/wiki)
+- **Strategy Pattern** for different mouse button monitoring implementations
+- **SOLID principles** throughout
+- Clean separation between Core, Linux platform, App and Service layers
 
 ## License
 
-MIT
+MIT License - see [LICENSE](LICENSE) file.

@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Olbrasoft.SpeechToText.App.Services;
 using Olbrasoft.SpeechToText.Audio;
-using Olbrasoft.SpeechToText.Speech;
-using Olbrasoft.SpeechToText.TextInput;
+using Olbrasoft.SpeechToText.Core.Extensions;
+using Olbrasoft.SpeechToText.Core.Interfaces;
 
 namespace Olbrasoft.SpeechToText.App;
 
@@ -17,7 +17,8 @@ public enum DictationState
 }
 
 /// <summary>
-/// Orchestrates the dictation workflow: recording, transcription, and text typing.
+/// Orchestrates the dictation workflow: recording, transcription, and text output.
+/// Refactored to use ITranscriptionCoordinator and ITextOutputHandler for SRP compliance.
 /// </summary>
 public class DictationService : IDisposable, IAsyncDisposable
 {
@@ -25,10 +26,8 @@ public class DictationService : IDisposable, IAsyncDisposable
     private readonly ILogger<DictationService> _logger;
     private readonly IKeyboardMonitor _keyboardMonitor;
     private readonly IAudioRecorder _audioRecorder;
-    private readonly ISpeechTranscriber _speechTranscriber;
-    private readonly ITextTyper _textTyper;
-    private readonly TypingSoundPlayer? _typingSoundPlayer;
-    private readonly TextFilter? _textFilter;
+    private readonly ITranscriptionCoordinator _transcriptionCoordinator;
+    private readonly ITextOutputHandler _textOutputHandler;
     private readonly IVirtualAssistantClient? _virtualAssistantClient;
     private readonly KeyCode _triggerKey;
     private readonly KeyCode _cancelKey;
@@ -57,21 +56,17 @@ public class DictationService : IDisposable, IAsyncDisposable
         ILogger<DictationService> logger,
         IKeyboardMonitor keyboardMonitor,
         IAudioRecorder audioRecorder,
-        ISpeechTranscriber speechTranscriber,
-        ITextTyper textTyper,
-        TypingSoundPlayer? typingSoundPlayer = null,
-        TextFilter? textFilter = null,
+        ITranscriptionCoordinator transcriptionCoordinator,
+        ITextOutputHandler textOutputHandler,
         IVirtualAssistantClient? virtualAssistantClient = null,
         KeyCode triggerKey = KeyCode.CapsLock,
         KeyCode cancelKey = KeyCode.Escape)
     {
-        _logger = logger;
-        _keyboardMonitor = keyboardMonitor;
-        _audioRecorder = audioRecorder;
-        _speechTranscriber = speechTranscriber;
-        _textTyper = textTyper;
-        _typingSoundPlayer = typingSoundPlayer;
-        _textFilter = textFilter;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _keyboardMonitor = keyboardMonitor ?? throw new ArgumentNullException(nameof(keyboardMonitor));
+        _audioRecorder = audioRecorder ?? throw new ArgumentNullException(nameof(audioRecorder));
+        _transcriptionCoordinator = transcriptionCoordinator ?? throw new ArgumentNullException(nameof(transcriptionCoordinator));
+        _textOutputHandler = textOutputHandler ?? throw new ArgumentNullException(nameof(textOutputHandler));
         _virtualAssistantClient = virtualAssistantClient;
         _triggerKey = triggerKey;
         _cancelKey = cancelKey;
@@ -82,8 +77,8 @@ public class DictationService : IDisposable, IAsyncDisposable
     /// </summary>
     public async Task StartMonitoringAsync(CancellationToken cancellationToken)
     {
-        _logger.LogDebug("DictationService initialized - TriggerKey: {TriggerKey}, CancelKey: {CancelKey}, TextFilter: {HasFilter}, SoundPlayer: {HasSound}",
-            _triggerKey, _cancelKey, _textFilter != null, _typingSoundPlayer != null);
+        _logger.LogDebug("DictationService initialized - TriggerKey: {TriggerKey}, CancelKey: {CancelKey}",
+            _triggerKey, _cancelKey);
 
         _keyboardMonitor.KeyReleased += OnKeyReleased;
 
@@ -123,19 +118,19 @@ public class DictationService : IDisposable, IAsyncDisposable
         if (capsLockOn && _state == DictationState.Idle)
         {
             _logger.LogInformation("{TriggerKey} pressed, CapsLock ON - starting dictation", _triggerKey);
-            _ = Task.Run(() => StartDictationAsync());
+            Task.Run(() => StartDictationAsync()).FireAndForget(_logger, "StartDictation");
         }
         // CapsLock OFF + Recording → stop recording and transcribe
         else if (!capsLockOn && _state == DictationState.Recording)
         {
             _logger.LogInformation("{TriggerKey} pressed, CapsLock OFF - stopping dictation", _triggerKey);
-            _ = Task.Run(() => StopDictationAsync());
+            Task.Run(() => StopDictationAsync()).FireAndForget(_logger, "StopDictation");
         }
         // CapsLock ON + Recording → user toggled again, stop (emergency stop)
         else if (capsLockOn && _state == DictationState.Recording)
         {
             _logger.LogWarning("CapsLock toggled ON while recording - emergency stop");
-            _ = Task.Run(() => StopDictationAsync());
+            Task.Run(() => StopDictationAsync()).FireAndForget(_logger, "StopDictation");
         }
         // If Transcribing, ignore the trigger key press (but cancel key is handled above)
     }
@@ -184,7 +179,16 @@ public class DictationService : IDisposable, IAsyncDisposable
             _logger.LogInformation("Starting audio recording...");
             // Fire-and-forget: don't await - recording runs in background
             // Awaiting would block until recording stops
-            _ = _audioRecorder.StartRecordingAsync(_cts.Token);
+            // But we need to handle failures, so use ContinueWith
+            var recordingTask = _audioRecorder.StartRecordingAsync(_cts.Token);
+            _ = recordingTask.ContinueWith(t =>
+            {
+                if (t.IsFaulted && _state == DictationState.Recording)
+                {
+                    _logger.LogError(t.Exception, "Recording failed");
+                    SetState(DictationState.Idle);
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted);
         }
         catch (Exception ex)
         {
@@ -194,7 +198,7 @@ public class DictationService : IDisposable, IAsyncDisposable
     }
 
     /// <summary>
-    /// Stops recording, transcribes, and types the result.
+    /// Stops recording, transcribes, and outputs the result.
     /// </summary>
     public async Task StopDictationAsync()
     {
@@ -234,8 +238,6 @@ public class DictationService : IDisposable, IAsyncDisposable
                 return;
             }
 
-            // State is already Transcribing and CTS is ready (set in lock above)
-
             // Check for cancellation before starting transcription
             // This gives user time to cancel while recording was stopping
             if (_transcriptionCts.Token.IsCancellationRequested)
@@ -244,37 +246,22 @@ public class DictationService : IDisposable, IAsyncDisposable
                 throw new OperationCanceledException(_transcriptionCts.Token);
             }
 
-            // Start transcription sound loop
-            _typingSoundPlayer?.StartLoop();
-
-            // One more check right before transcription
-            _transcriptionCts.Token.ThrowIfCancellationRequested();
-
-            _logger.LogInformation("Starting transcription...");
-            var result = await _speechTranscriber.TranscribeAsync(audioData, _transcriptionCts.Token);
-
-            // Stop transcription sound loop
-            _typingSoundPlayer?.StopLoop();
+            // Transcribe with feedback (sound loop handled by coordinator)
+            var result = await _transcriptionCoordinator.TranscribeWithFeedbackAsync(
+                audioData,
+                _transcriptionCts.Token);
 
             if (result.Success && !string.IsNullOrWhiteSpace(result.Text))
             {
                 _logger.LogInformation("Transcription: {Text}", result.Text);
 
-                // Apply text filters
-                var filteredText = _textFilter?.Apply(result.Text) ?? result.Text;
+                // Output text (filtering + typing handled by handler)
+                var typedText = await _textOutputHandler.OutputTextAsync(result.Text);
 
-                if (!string.IsNullOrWhiteSpace(filteredText))
+                if (typedText != null)
                 {
-                    // Type the transcribed text
-                    await _textTyper.TypeTextAsync(filteredText);
-                    _logger.LogInformation("Text typed successfully");
-
                     // Notify listeners about transcription completion
-                    TranscriptionCompleted?.Invoke(this, filteredText);
-                }
-                else
-                {
-                    _logger.LogInformation("Text empty after filtering, nothing to type");
+                    TranscriptionCompleted?.Invoke(this, typedText);
                 }
             }
             else
@@ -292,8 +279,6 @@ public class DictationService : IDisposable, IAsyncDisposable
         }
         finally
         {
-            // Ensure sound is stopped even on error/cancel
-            _typingSoundPlayer?.StopLoop();
             _transcriptionCts?.Dispose();
             _transcriptionCts = null;
             _cts?.Dispose();
@@ -321,8 +306,7 @@ public class DictationService : IDisposable, IAsyncDisposable
         _keyboardMonitor.KeyReleased -= OnKeyReleased;
         _cts?.Cancel();
         _cts?.Dispose();
-        _typingSoundPlayer?.Dispose();
-        _speechTranscriber.Dispose();
+        _transcriptionCoordinator.Dispose();
 
         GC.SuppressFinalize(this);
     }
@@ -340,8 +324,7 @@ public class DictationService : IDisposable, IAsyncDisposable
 
         _cts?.Cancel();
         _cts?.Dispose();
-        _typingSoundPlayer?.Dispose();
-        _speechTranscriber.Dispose();
+        _transcriptionCoordinator.Dispose();
 
         GC.SuppressFinalize(this);
     }

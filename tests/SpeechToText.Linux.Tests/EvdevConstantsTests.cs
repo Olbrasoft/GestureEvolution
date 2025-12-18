@@ -33,27 +33,6 @@ public class EvdevConstantsTests
     }
 
     [Fact]
-    public void BTN_LEFT_ShouldBe272()
-    {
-        // Assert - BTN_LEFT = 0x110
-        Assert.Equal(272, EvdevConstants.BTN_LEFT);
-    }
-
-    [Fact]
-    public void BTN_RIGHT_ShouldBe273()
-    {
-        // Assert - BTN_RIGHT = 0x111
-        Assert.Equal(273, EvdevConstants.BTN_RIGHT);
-    }
-
-    [Fact]
-    public void BTN_MIDDLE_ShouldBe274()
-    {
-        // Assert - BTN_MIDDLE = 0x112
-        Assert.Equal(274, EvdevConstants.BTN_MIDDLE);
-    }
-
-    [Fact]
     public void KEY_PRESS_ShouldBe1()
     {
         // Assert
@@ -86,13 +65,5 @@ public class EvdevConstantsTests
     {
         // Assert
         Assert.Equal(30, EvdevConstants.LogIntervalAttempts);
-    }
-
-    [Fact]
-    public void MouseButtonCodes_ShouldBeConsecutive()
-    {
-        // Assert - BTN_LEFT, BTN_RIGHT, BTN_MIDDLE should be consecutive
-        Assert.Equal(EvdevConstants.BTN_LEFT + 1, EvdevConstants.BTN_RIGHT);
-        Assert.Equal(EvdevConstants.BTN_RIGHT + 1, EvdevConstants.BTN_MIDDLE);
     }
 }

@@ -283,7 +283,7 @@ internal class AnimatedIconHandler : OrgKdeStatusNotifierItemHandler
         _logger = logger;
 
         Category = "ApplicationStatus";
-        Id = "speech-to-text-animation";
+        Id = "ptt-animation";
         Title = "Transcribing...";
         Status = "Active";
         IconName = "";

@@ -1,5 +1,6 @@
 using Olbrasoft.SpeechToText;
 using Olbrasoft.SpeechToText.Audio;
+using Olbrasoft.SpeechToText.Core.Configuration;
 using Olbrasoft.SpeechToText.Service;
 using Olbrasoft.SpeechToText.Service.Services;
 using Olbrasoft.SpeechToText.Service.Tray;
@@ -28,7 +29,7 @@ var cts = new CancellationTokenSource();
 var builder = WebApplication.CreateBuilder(args);
 
 // Add all services using extension method
-builder.Services.AddSpeechToTextServices(builder.Configuration);
+builder.Services.AddPushToTalkServices(builder.Configuration);
 
 // Configure logging
 builder.Logging.AddConsole();
@@ -42,22 +43,16 @@ app.UseCors();
 app.UseStaticFiles();
 
 // Map all endpoints using extension method
-app.MapSpeechToTextEndpoints();
+app.MapPushToTalkEndpoints();
 
 // Get services for initialization
 var pttNotifier = app.Services.GetRequiredService<IPttNotifier>();
 var trayLogger = app.Services.GetRequiredService<ILogger<TranscriptionTrayService>>();
 var typingSoundPlayer = app.Services.GetRequiredService<TypingSoundPlayer>();
-var trayService = new TranscriptionTrayService(trayLogger, pttNotifier, typingSoundPlayer);
+var trayService = new TranscriptionTrayService(trayLogger, pttNotifier, typingSoundPlayer, builder.Configuration);
 
-// Start mouse monitors
-var bluetoothMouseMonitor = app.Services.GetRequiredService<BluetoothMouseMonitor>();
-_ = bluetoothMouseMonitor.StartMonitoringAsync(cts.Token);
-Console.WriteLine("Bluetooth mouse monitor started (LEFT=CapsLock, 2xLEFT=ESC, 3xLEFT=OpenCode, 2xRIGHT=Ctrl+Shift+V, 3xRIGHT=Ctrl+C, MIDDLE=Enter)");
-
-var usbMouseMonitor = app.Services.GetRequiredService<UsbMouseMonitor>();
-_ = usbMouseMonitor.StartMonitoringAsync(cts.Token);
-Console.WriteLine("USB mouse monitor started (LEFT=CapsLock, 2xLEFT=ESC, 2xRIGHT=Ctrl+Shift+V, 3xRIGHT=Ctrl+C)");
+// Get web server port from configuration
+var webPort = builder.Configuration.GetValue<int>("WebServer:Port", ServiceEndpoints.DefaultWebServerPort);
 
 try
 {
@@ -69,11 +64,11 @@ try
     });
 
     Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
-    Console.WriteLine("║            SpeechToText Dictation Service                    ║");
+    Console.WriteLine("║            PushToTalk Dictation Service                    ║");
     Console.WriteLine("╚══════════════════════════════════════════════════════════════╝");
     Console.WriteLine();
     Console.WriteLine("Transcription tray icon initialized");
-    Console.WriteLine("API listening on http://localhost:5050");
+    Console.WriteLine($"API listening on http://localhost:{webPort}");
 
     // Start WebApplication in background
     var hostTask = Task.Run(async () =>
@@ -115,8 +110,6 @@ catch (Exception ex)
 }
 finally
 {
-    bluetoothMouseMonitor.Dispose();
-    usbMouseMonitor.Dispose();
     trayService.Dispose();
     app.DisposeAsync().AsTask().Wait();
     cts.Dispose();

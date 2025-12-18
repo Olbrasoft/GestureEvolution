@@ -1,3 +1,4 @@
+using System.IO;
 using Microsoft.Extensions.Logging;
 using Tmds.DBus.SourceGenerator;
 using Tmds.DBus.Protocol;
@@ -180,11 +181,31 @@ public class DBusTrayIcon : IDisposable
             _sysTrayServiceName = _connection.UniqueName!;
             await _statusNotifierWatcher.RegisterStatusNotifierItemAsync(_sysTrayServiceName);
 
-            // Set initial state
+            // Set initial state IMMEDIATELY after registration (for fast desktop environments)
             _sniHandler.SetTitleAndTooltip(_tooltipText);
             _sniHandler.SetIcon(_currentIcon);
 
             _logger.LogInformation("Tray icon registered as {ServiceName}", _sysTrayServiceName);
+
+            // Re-emit signals after delays for GNOME Shell's appindicator extension
+            // (it needs extra time to connect and receive the signals)
+            _ = Task.Run(async () =>
+            {
+                // First retry after 100ms
+                await Task.Delay(100);
+                if (!_isDisposed && _sniHandler?.PathHandler is not null)
+                {
+                    _sniHandler.SetIcon(_currentIcon);
+                }
+
+                // Second retry after 500ms for slower shells
+                await Task.Delay(400);
+                if (!_isDisposed && _sniHandler?.PathHandler is not null)
+                {
+                    _sniHandler.SetIcon(_currentIcon);
+                    _logger.LogDebug("Re-emitted icon signals for GNOME Shell");
+                }
+            });
         }
         catch (Exception ex)
         {
@@ -219,7 +240,7 @@ public class DBusTrayIcon : IDisposable
     /// <summary>
     /// Sets the tray icon from an SVG file name (without path and extension).
     /// </summary>
-    /// <param name="iconName">Icon name, e.g., "trigger-speech-to-text"</param>
+    /// <param name="iconName">Icon name, e.g., "trigger-ptt"</param>
     public void SetIcon(string iconName)
     {
         if (_isDisposed)
@@ -237,9 +258,13 @@ public class DBusTrayIcon : IDisposable
                 _logger.LogDebug("Set icon: {IconName} ({Width}x{Height})", iconName, _currentIcon.Item1, _currentIcon.Item2);
             }
         }
-        catch (Exception ex)
+        catch (FileNotFoundException ex)
         {
-            _logger.LogError(ex, "Failed to set icon: {IconName}", iconName);
+            _logger.LogError(ex, "Icon file not found: {IconName}", iconName);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Invalid icon operation: {IconName}", iconName);
         }
     }
 
@@ -260,9 +285,13 @@ public class DBusTrayIcon : IDisposable
                 _sniHandler.SetAttentionIcon(pixmap.Value);
             }
         }
-        catch (Exception ex)
+        catch (FileNotFoundException ex)
         {
-            _logger.LogError(ex, "Failed to set attention icon: {IconName}", iconName);
+            _logger.LogError(ex, "Attention icon file not found: {IconName}", iconName);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Invalid attention icon operation: {IconName}", iconName);
         }
     }
 

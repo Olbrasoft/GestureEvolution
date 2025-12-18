@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Logging;
 using Moq;
-using Olbrasoft.SpeechToText;
 using Olbrasoft.SpeechToText.App;
-using Olbrasoft.SpeechToText.Speech;
-using Olbrasoft.SpeechToText.TextInput;
+using Olbrasoft.SpeechToText.App.Services;
+using Olbrasoft.SpeechToText.Core.Interfaces;
+using Olbrasoft.SpeechToText.Core.Models;
 
 namespace Olbrasoft.SpeechToText.App.Tests;
 
@@ -12,8 +12,8 @@ public class DictationServiceTests : IDisposable
     private readonly Mock<ILogger<DictationService>> _loggerMock;
     private readonly Mock<IKeyboardMonitor> _keyboardMonitorMock;
     private readonly Mock<IAudioRecorder> _audioRecorderMock;
-    private readonly Mock<ISpeechTranscriber> _transcriberMock;
-    private readonly Mock<ITextTyper> _textTyperMock;
+    private readonly Mock<ITranscriptionCoordinator> _transcriptionCoordinatorMock;
+    private readonly Mock<ITextOutputHandler> _textOutputHandlerMock;
     private readonly DictationService _service;
 
     public DictationServiceTests()
@@ -21,15 +21,15 @@ public class DictationServiceTests : IDisposable
         _loggerMock = new Mock<ILogger<DictationService>>();
         _keyboardMonitorMock = new Mock<IKeyboardMonitor>();
         _audioRecorderMock = new Mock<IAudioRecorder>();
-        _transcriberMock = new Mock<ISpeechTranscriber>();
-        _textTyperMock = new Mock<ITextTyper>();
+        _transcriptionCoordinatorMock = new Mock<ITranscriptionCoordinator>();
+        _textOutputHandlerMock = new Mock<ITextOutputHandler>();
 
         _service = new DictationService(
             _loggerMock.Object,
             _keyboardMonitorMock.Object,
             _audioRecorderMock.Object,
-            _transcriberMock.Object,
-            _textTyperMock.Object);
+            _transcriptionCoordinatorMock.Object,
+            _textOutputHandlerMock.Object);
     }
 
     public void Dispose()
@@ -107,11 +107,13 @@ public class DictationServiceTests : IDisposable
 
         // Assert
         Assert.Equal(DictationState.Idle, _service.State);
-        _transcriberMock.Verify(t => t.TranscribeAsync(It.IsAny<byte[]>(), It.IsAny<CancellationToken>()), Times.Never);
+        _transcriptionCoordinatorMock.Verify(
+            t => t.TranscribeWithFeedbackAsync(It.IsAny<byte[]>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
-    public async Task StopDictationAsync_WithAudioData_ShouldTranscribeAndType()
+    public async Task StopDictationAsync_WithAudioData_ShouldTranscribeAndOutput()
     {
         // Arrange
         var audioData = new byte[] { 1, 2, 3, 4, 5 };
@@ -123,10 +125,10 @@ public class DictationServiceTests : IDisposable
             .Returns(Task.CompletedTask);
         _audioRecorderMock.Setup(r => r.GetRecordedData())
             .Returns(audioData);
-        _transcriberMock.Setup(t => t.TranscribeAsync(audioData, It.IsAny<CancellationToken>()))
+        _transcriptionCoordinatorMock.Setup(t => t.TranscribeWithFeedbackAsync(audioData, It.IsAny<CancellationToken>()))
             .ReturnsAsync(transcriptionResult);
-        _textTyperMock.Setup(t => t.TypeTextAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        _textOutputHandlerMock.Setup(t => t.OutputTextAsync(It.IsAny<string>()))
+            .ReturnsAsync("Hello World");
 
         await _service.StartDictationAsync();
 
@@ -135,12 +137,14 @@ public class DictationServiceTests : IDisposable
 
         // Assert
         Assert.Equal(DictationState.Idle, _service.State);
-        _transcriberMock.Verify(t => t.TranscribeAsync(audioData, It.IsAny<CancellationToken>()), Times.Once);
-        _textTyperMock.Verify(t => t.TypeTextAsync("Hello World", It.IsAny<CancellationToken>()), Times.Once);
+        _transcriptionCoordinatorMock.Verify(
+            t => t.TranscribeWithFeedbackAsync(audioData, It.IsAny<CancellationToken>()),
+            Times.Once);
+        _textOutputHandlerMock.Verify(t => t.OutputTextAsync("Hello World"), Times.Once);
     }
 
     [Fact]
-    public async Task StopDictationAsync_WithFailedTranscription_ShouldNotType()
+    public async Task StopDictationAsync_WithFailedTranscription_ShouldNotOutput()
     {
         // Arrange
         var audioData = new byte[] { 1, 2, 3 };
@@ -152,7 +156,7 @@ public class DictationServiceTests : IDisposable
             .Returns(Task.CompletedTask);
         _audioRecorderMock.Setup(r => r.GetRecordedData())
             .Returns(audioData);
-        _transcriberMock.Setup(t => t.TranscribeAsync(audioData, It.IsAny<CancellationToken>()))
+        _transcriptionCoordinatorMock.Setup(t => t.TranscribeWithFeedbackAsync(audioData, It.IsAny<CancellationToken>()))
             .ReturnsAsync(transcriptionResult);
 
         await _service.StartDictationAsync();
@@ -162,7 +166,7 @@ public class DictationServiceTests : IDisposable
 
         // Assert
         Assert.Equal(DictationState.Idle, _service.State);
-        _textTyperMock.Verify(t => t.TypeTextAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _textOutputHandlerMock.Verify(t => t.OutputTextAsync(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -235,10 +239,10 @@ public class DictationServiceTests : IDisposable
             .Returns(Task.CompletedTask);
         _audioRecorderMock.Setup(r => r.GetRecordedData())
             .Returns(audioData);
-        _transcriberMock.Setup(t => t.TranscribeAsync(audioData, It.IsAny<CancellationToken>()))
+        _transcriptionCoordinatorMock.Setup(t => t.TranscribeWithFeedbackAsync(audioData, It.IsAny<CancellationToken>()))
             .ReturnsAsync(transcriptionResult);
-        _textTyperMock.Setup(t => t.TypeTextAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        _textOutputHandlerMock.Setup(t => t.OutputTextAsync(It.IsAny<string>()))
+            .ReturnsAsync("Test");
 
         await _service.StartDictationAsync();
 
@@ -259,6 +263,9 @@ public class DictationServiceTests : IDisposable
         // Act
         await _service.StartDictationAsync();
 
+        // Wait for the async ContinueWith error handler to execute
+        await Task.Delay(50);
+
         // Assert
         Assert.Equal(DictationState.Idle, _service.State);
     }
@@ -275,7 +282,7 @@ public class DictationServiceTests : IDisposable
             .Returns(Task.CompletedTask);
         _audioRecorderMock.Setup(r => r.GetRecordedData())
             .Returns(audioData);
-        _transcriberMock.Setup(t => t.TranscribeAsync(audioData, It.IsAny<CancellationToken>()))
+        _transcriptionCoordinatorMock.Setup(t => t.TranscribeWithFeedbackAsync(audioData, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Transcription error"));
 
         await _service.StartDictationAsync();
@@ -288,7 +295,7 @@ public class DictationServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task StopDictationAsync_WithEmptyText_ShouldNotType()
+    public async Task StopDictationAsync_WithEmptyText_ShouldNotOutput()
     {
         // Arrange
         var audioData = new byte[] { 1, 2, 3 };
@@ -300,7 +307,7 @@ public class DictationServiceTests : IDisposable
             .Returns(Task.CompletedTask);
         _audioRecorderMock.Setup(r => r.GetRecordedData())
             .Returns(audioData);
-        _transcriberMock.Setup(t => t.TranscribeAsync(audioData, It.IsAny<CancellationToken>()))
+        _transcriptionCoordinatorMock.Setup(t => t.TranscribeWithFeedbackAsync(audioData, It.IsAny<CancellationToken>()))
             .ReturnsAsync(transcriptionResult);
 
         await _service.StartDictationAsync();
@@ -309,7 +316,7 @@ public class DictationServiceTests : IDisposable
         await _service.StopDictationAsync();
 
         // Assert
-        _textTyperMock.Verify(t => t.TypeTextAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _textOutputHandlerMock.Verify(t => t.OutputTextAsync(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -341,57 +348,15 @@ public class DictationServiceTests : IDisposable
         await _service.DisposeAsync();
         await _service.DisposeAsync();
     }
-}
-
-public class DictationServiceWithTextFilterTests : IDisposable
-{
-    private readonly Mock<ILogger<DictationService>> _loggerMock;
-    private readonly Mock<ILogger<TextFilter>> _filterLoggerMock;
-    private readonly Mock<IKeyboardMonitor> _keyboardMonitorMock;
-    private readonly Mock<IAudioRecorder> _audioRecorderMock;
-    private readonly Mock<ISpeechTranscriber> _transcriberMock;
-    private readonly Mock<ITextTyper> _textTyperMock;
-    private readonly string _tempConfigPath;
-    private readonly DictationService _service;
-
-    public DictationServiceWithTextFilterTests()
-    {
-        _loggerMock = new Mock<ILogger<DictationService>>();
-        _filterLoggerMock = new Mock<ILogger<TextFilter>>();
-        _keyboardMonitorMock = new Mock<IKeyboardMonitor>();
-        _audioRecorderMock = new Mock<IAudioRecorder>();
-        _transcriberMock = new Mock<ISpeechTranscriber>();
-        _textTyperMock = new Mock<ITextTyper>();
-
-        _tempConfigPath = Path.Combine(Path.GetTempPath(), $"filter_test_{Guid.NewGuid()}.json");
-        File.WriteAllText(_tempConfigPath, """{"remove": ["[music]", "[applause]"]}""");
-
-        var textFilter = new TextFilter(_filterLoggerMock.Object, _tempConfigPath);
-
-        _service = new DictationService(
-            _loggerMock.Object,
-            _keyboardMonitorMock.Object,
-            _audioRecorderMock.Object,
-            _transcriberMock.Object,
-            _textTyperMock.Object,
-            textFilter: textFilter);
-    }
-
-    public void Dispose()
-    {
-        _service.Dispose();
-        if (File.Exists(_tempConfigPath))
-        {
-            File.Delete(_tempConfigPath);
-        }
-    }
 
     [Fact]
-    public async Task StopDictationAsync_WithFilter_ShouldApplyFilter()
+    public async Task TranscriptionCompleted_ShouldBeRaised_WhenOutputSucceeds()
     {
         // Arrange
         var audioData = new byte[] { 1, 2, 3 };
-        var transcriptionResult = new TranscriptionResult("Hello [music] World", 1.0f);
+        var transcriptionResult = new TranscriptionResult("Hello", 1.0f);
+        string? completedText = null;
+        _service.TranscriptionCompleted += (_, text) => completedText = text;
 
         _audioRecorderMock.Setup(r => r.StartRecordingAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -399,26 +364,28 @@ public class DictationServiceWithTextFilterTests : IDisposable
             .Returns(Task.CompletedTask);
         _audioRecorderMock.Setup(r => r.GetRecordedData())
             .Returns(audioData);
-        _transcriberMock.Setup(t => t.TranscribeAsync(audioData, It.IsAny<CancellationToken>()))
+        _transcriptionCoordinatorMock.Setup(t => t.TranscribeWithFeedbackAsync(audioData, It.IsAny<CancellationToken>()))
             .ReturnsAsync(transcriptionResult);
-        _textTyperMock.Setup(t => t.TypeTextAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        _textOutputHandlerMock.Setup(t => t.OutputTextAsync("Hello"))
+            .ReturnsAsync("Hello");
 
         await _service.StartDictationAsync();
 
         // Act
         await _service.StopDictationAsync();
 
-        // Assert - filtered text should be typed
-        _textTyperMock.Verify(t => t.TypeTextAsync("Hello World", It.IsAny<CancellationToken>()), Times.Once);
+        // Assert
+        Assert.Equal("Hello", completedText);
     }
 
     [Fact]
-    public async Task StopDictationAsync_WithFilterRemovingEverything_ShouldNotType()
+    public async Task TranscriptionCompleted_ShouldNotBeRaised_WhenOutputReturnsNull()
     {
         // Arrange
         var audioData = new byte[] { 1, 2, 3 };
-        var transcriptionResult = new TranscriptionResult("[music]", 1.0f);
+        var transcriptionResult = new TranscriptionResult("Test", 1.0f);
+        bool eventRaised = false;
+        _service.TranscriptionCompleted += (_, _) => eventRaised = true;
 
         _audioRecorderMock.Setup(r => r.StartRecordingAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -426,16 +393,18 @@ public class DictationServiceWithTextFilterTests : IDisposable
             .Returns(Task.CompletedTask);
         _audioRecorderMock.Setup(r => r.GetRecordedData())
             .Returns(audioData);
-        _transcriberMock.Setup(t => t.TranscribeAsync(audioData, It.IsAny<CancellationToken>()))
+        _transcriptionCoordinatorMock.Setup(t => t.TranscribeWithFeedbackAsync(audioData, It.IsAny<CancellationToken>()))
             .ReturnsAsync(transcriptionResult);
+        _textOutputHandlerMock.Setup(t => t.OutputTextAsync(It.IsAny<string>()))
+            .ReturnsAsync((string?)null); // Output returns null (filtered out)
 
         await _service.StartDictationAsync();
 
         // Act
         await _service.StopDictationAsync();
 
-        // Assert - nothing to type after filtering
-        _textTyperMock.Verify(t => t.TypeTextAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        // Assert
+        Assert.False(eventRaised);
     }
 }
 

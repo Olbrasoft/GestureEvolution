@@ -9,13 +9,15 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Olbrasoft.SpeechToText.App;
 using Olbrasoft.SpeechToText.App.Hubs;
+using Olbrasoft.SpeechToText.Core.Configuration;
+using Olbrasoft.SpeechToText.Core.Extensions;
 using Olbrasoft.SpeechToText.TextInput;
 
 // Single instance check
 using var instanceLock = SingleInstanceLock.TryAcquire();
 if (!instanceLock.IsAcquired)
 {
-    Console.WriteLine("ERROR: SpeechToText is already running!");
+    Console.WriteLine("ERROR: PushToTalk is already running!");
     Console.WriteLine("Only one instance is allowed.");
     Environment.Exit(1);
     return;
@@ -31,7 +33,7 @@ var options = new DictationOptions();
 config.GetSection(DictationOptions.SectionName).Bind(options);
 
 // Get port from config or use default
-var webPort = config.GetValue<int>("WebServer:Port", 5050);
+var webPort = config.GetValue<int>("WebServer:Port", ServiceEndpoints.DefaultWebServerPort);
 
 // Setup logging
 using var loggerFactory = LoggerFactory.Create(builder =>
@@ -45,11 +47,11 @@ var logger = loggerFactory.CreateLogger<Program>();
 // Print banner
 var version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown";
 Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
-Console.WriteLine("║              SpeechToText Desktop Application                ║");
+Console.WriteLine("║              PushToTalk Desktop Application                ║");
 Console.WriteLine($"║                      Version: {version,-25}       ║");
 Console.WriteLine("╚══════════════════════════════════════════════════════════════╝");
 Console.WriteLine();
-logger.LogInformation("SpeechToText version {Version} starting", version);
+logger.LogInformation("PushToTalk version {Version} starting", version);
 
 // Validate Whisper model exists
 var modelPath = options.GetFullGgmlModelPath();
@@ -175,11 +177,26 @@ webApp.MapPost("/api/recording/toggle", async () =>
     return Results.BadRequest(new { Success = false, Error = "Transcription in progress" });
 });
 
+webApp.MapPost("/api/recording/cancel", () =>
+{
+    if (dictationService.State == DictationState.Transcribing)
+    {
+        dictationService.CancelTranscription();
+        return Results.Ok(new { Success = true });
+    }
+    return Results.BadRequest(new { Success = false, Error = "Not transcribing" });
+});
+
 // Get SignalR hub context for broadcasting
 var hubContext = webApp.Services.GetRequiredService<IHubContext<DictationHub>>();
 
 try
 {
+    // Pre-set initial icon BEFORE initialization so it's available during D-Bus registration
+    // (CreateTrayIconAsync uses _currentIcon when registering with StatusNotifierWatcher)
+    dbusTrayIcon.SetIcon("trigger-ptt");
+    dbusTrayIcon.SetTooltip("Push To Talk - Idle");
+
     // Initialize D-Bus tray icons (main + animated use unique paths to avoid duplicate detection - issue #62)
     await dbusTrayIcon.InitializeAsync();
     await animatedIcon.InitializeAsync();
@@ -187,10 +204,6 @@ try
     if (dbusTrayIcon.IsActive)
     {
         Console.WriteLine("D-Bus tray icon initialized");
-
-        // Set initial icon
-        dbusTrayIcon.SetIcon("trigger-speech-to-text");
-        dbusTrayIcon.SetTooltip("Speech to Text - Idle");
 
         // Handle state changes from DictationService
         // Main icon stays visible, animated icon shows NEXT TO it during transcription (issue #62)
@@ -201,16 +214,18 @@ try
             {
                 case DictationState.Idle:
                     animatedIcon.Hide();
-                    dbusTrayIcon.SetIcon("trigger-speech-to-text");
-                    dbusTrayIcon.SetTooltip("Speech to Text - Idle");
+                    dbusTrayIcon.SetIcon("trigger-ptt");
+                    dbusTrayIcon.SetTooltip("Push To Talk - Idle");
                     break;
                 case DictationState.Recording:
                     animatedIcon.Hide();
-                    dbusTrayIcon.SetIcon("trigger-speech-to-text-recording");
-                    dbusTrayIcon.SetTooltip("Speech to Text - Recording...");
+                    dbusTrayIcon.SetIcon("trigger-ptt-recording");
+                    dbusTrayIcon.SetTooltip("Push To Talk - Recording...");
                     break;
                 case DictationState.Transcribing:
-                    dbusTrayIcon.SetTooltip("Speech to Text - Transcribing...");
+                    // Change icon back to white immediately when recording stops (issue #28)
+                    dbusTrayIcon.SetIcon("trigger-ptt");
+                    dbusTrayIcon.SetTooltip("Push To Talk - Transcribing...");
                     // Show animated icon NEXT TO main icon (main stays visible)
                     await animatedIcon.ShowAsync();
                     break;
@@ -268,7 +283,7 @@ try
     }
 
     // Start web server in background
-    _ = Task.Run(async () =>
+    Task.Run(async () =>
     {
         try
         {
@@ -280,13 +295,13 @@ try
         {
             // Normal shutdown
         }
-    });
+    }).FireAndForget(logger, "WebServer");
 
     Console.WriteLine($"Web server started on http://localhost:{webPort}");
     Console.WriteLine($"Remote control: http://localhost:{webPort}/remote.html");
 
     // Start keyboard monitoring in background
-    _ = Task.Run(async () =>
+    Task.Run(async () =>
     {
         try
         {
@@ -300,7 +315,7 @@ try
         {
             logger.LogError(ex, "Keyboard monitoring failed");
         }
-    });
+    }).FireAndForget(logger, "KeyboardMonitoring");
 
     var triggerKey = options.GetTriggerKeyCode();
     Console.WriteLine($"Keyboard monitoring started ({triggerKey} to trigger)");
@@ -348,4 +363,4 @@ finally
     dbusTrayIcon.Dispose();
 }
 
-Console.WriteLine("SpeechToText stopped");
+Console.WriteLine("PushToTalk stopped");

@@ -12,6 +12,8 @@ public class WhisperNetTranscriber : ISpeechTranscriber
     private readonly ILogger<WhisperNetTranscriber> _logger;
     private readonly string _modelPath;
     private readonly string _language;
+    private readonly SemaphoreSlim _initLock = new(1, 1);
+    private readonly SemaphoreSlim _transcribeLock = new(1, 1);
     private WhisperFactory? _whisperFactory;
     private WhisperProcessor? _processor;
     private bool _disposed;
@@ -42,14 +44,21 @@ public class WhisperNetTranscriber : ISpeechTranscriber
 
     /// <summary>
     /// Initializes the Whisper.net factory and processor (lazy initialization).
+    /// Thread-safe via semaphore.
     /// </summary>
-    private void Initialize()
+    private async Task InitializeAsync(CancellationToken cancellationToken)
     {
+        // Quick check without lock
         if (_whisperFactory != null && _processor != null)
             return;
 
+        await _initLock.WaitAsync(cancellationToken);
         try
         {
+            // Double-check after acquiring lock
+            if (_whisperFactory != null && _processor != null)
+                return;
+
             _logger.LogInformation("Loading Whisper.net model from: {ModelPath}", _modelPath);
 
             // Create factory - Whisper.net automatically selects best runtime (CUDA > CPU)
@@ -75,6 +84,10 @@ public class WhisperNetTranscriber : ISpeechTranscriber
         {
             _logger.LogError(ex, "Failed to initialize Whisper.net");
             throw;
+        }
+        finally
+        {
+            _initLock.Release();
         }
     }
 
@@ -114,9 +127,23 @@ public class WhisperNetTranscriber : ISpeechTranscriber
         if (_disposed)
             throw new ObjectDisposedException(nameof(WhisperNetTranscriber));
 
+        // Ensure only one transcription runs at a time - Whisper.net is NOT thread-safe
+        await _transcribeLock.WaitAsync(cancellationToken);
         try
         {
-            Initialize();
+            return await TranscribeInternalAsync(audioData, cancellationToken);
+        }
+        finally
+        {
+            _transcribeLock.Release();
+        }
+    }
+
+    private async Task<TranscriptionResult> TranscribeInternalAsync(byte[] audioData, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await InitializeAsync(cancellationToken);
 
             _logger.LogDebug("Starting transcription... (audio size: {Size} bytes)", audioData.Length);
 
@@ -137,6 +164,9 @@ public class WhisperNetTranscriber : ISpeechTranscriber
             {
                 await foreach (var segment in _processor!.ProcessAsync(samples, cancellationToken))
                 {
+                    // Check for cancellation between segments
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     if (!string.IsNullOrWhiteSpace(segment.Text))
                     {
                         segments.Add(segment.Text.Trim());
@@ -200,6 +230,8 @@ public class WhisperNetTranscriber : ISpeechTranscriber
 
         _processor?.Dispose();
         _whisperFactory?.Dispose();
+        _initLock.Dispose();
+        _transcribeLock.Dispose();
 
         _disposed = true;
         GC.SuppressFinalize(this);

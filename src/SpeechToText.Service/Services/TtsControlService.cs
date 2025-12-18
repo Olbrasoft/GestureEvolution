@@ -2,12 +2,13 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Olbrasoft.SpeechToText.Core.Configuration;
 
 namespace Olbrasoft.SpeechToText.Service.Services;
 
 /// <summary>
 /// HTTP-based TTS control service implementation.
-/// Communicates with EdgeTTS (port 5555) and VirtualAssistant (port 5055) services.
+/// Communicates with EdgeTTS and VirtualAssistant services.
 /// </summary>
 public class TtsControlService : ITtsControlService
 {
@@ -30,10 +31,13 @@ public class TtsControlService : ITtsControlService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
 
+        var endpoints = new ServiceEndpoints();
+        configuration?.GetSection(ServiceEndpoints.SectionName).Bind(endpoints);
+
         _edgeTtsBaseUrl = configuration?.GetValue<string>("EdgeTts:BaseUrl")
-            ?? "http://localhost:5555";
+            ?? endpoints.EdgeTts;
         _virtualAssistantBaseUrl = configuration?.GetValue<string>("VirtualAssistant:BaseUrl")
-            ?? "http://localhost:5055";
+            ?? endpoints.VirtualAssistant;
     }
 
     /// <inheritdoc/>
@@ -65,9 +69,13 @@ public class TtsControlService : ITtsControlService
                 _logger.LogWarning("TTS queue flush request failed: {StatusCode}", response.StatusCode);
             }
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            _logger.LogWarning(ex, "Failed to send TTS queue flush request");
+            _logger.LogWarning(ex, "Network error sending TTS queue flush request");
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogWarning(ex, "Timeout sending TTS queue flush request");
         }
     }
 
@@ -92,9 +100,13 @@ public class TtsControlService : ITtsControlService
                 _logger.LogWarning("VirtualAssistant mute state request failed: {StatusCode}", response.StatusCode);
             }
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            _logger.LogWarning(ex, "Failed to get VirtualAssistant mute state");
+            _logger.LogWarning(ex, "Network error getting VirtualAssistant mute state");
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogWarning(ex, "Timeout getting VirtualAssistant mute state");
         }
 
         return null;
@@ -121,9 +133,13 @@ public class TtsControlService : ITtsControlService
                 _logger.LogWarning("VirtualAssistant mute request failed: {StatusCode}", response.StatusCode);
             }
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            _logger.LogWarning(ex, "Failed to set VirtualAssistant mute state to {Muted}", muted);
+            _logger.LogWarning(ex, "Network error setting VirtualAssistant mute state to {Muted}", muted);
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogWarning(ex, "Timeout setting VirtualAssistant mute state to {Muted}", muted);
         }
     }
 
@@ -142,9 +158,13 @@ public class TtsControlService : ITtsControlService
                 _logger.LogWarning("EdgeTTS speech stop request failed: {StatusCode}", response.StatusCode);
             }
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            _logger.LogWarning(ex, "Failed to send EdgeTTS speech stop request");
+            _logger.LogWarning(ex, "Network error sending EdgeTTS speech stop request");
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogWarning(ex, "Timeout sending EdgeTTS speech stop request");
         }
     }
 
@@ -163,9 +183,13 @@ public class TtsControlService : ITtsControlService
                 _logger.LogWarning("VirtualAssistant TTS stop request failed: {StatusCode}", response.StatusCode);
             }
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            _logger.LogWarning(ex, "Failed to send VirtualAssistant TTS stop request");
+            _logger.LogWarning(ex, "Network error sending VirtualAssistant TTS stop request");
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogWarning(ex, "Timeout sending VirtualAssistant TTS stop request");
         }
     }
 
@@ -197,10 +221,15 @@ public class TtsControlService : ITtsControlService
                 _logger.LogWarning("Speech lock start request failed: {StatusCode}", response.StatusCode);
             }
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
             // Don't fail recording if VA is not running
-            _logger.LogDebug(ex, "Could not start speech lock on VirtualAssistant (may not be running)");
+            _logger.LogDebug(ex, "Could not start speech lock on VirtualAssistant (network error)");
+        }
+        catch (TaskCanceledException ex)
+        {
+            // Don't fail recording if VA is not running
+            _logger.LogDebug(ex, "Could not start speech lock on VirtualAssistant (timeout)");
         }
     }
 
@@ -222,10 +251,15 @@ public class TtsControlService : ITtsControlService
                 _logger.LogWarning("Speech lock stop request failed: {StatusCode}", response.StatusCode);
             }
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
             // Don't fail recording if VA is not running
-            _logger.LogDebug(ex, "Could not stop speech lock on VirtualAssistant (may not be running)");
+            _logger.LogDebug(ex, "Could not stop speech lock on VirtualAssistant (network error)");
+        }
+        catch (TaskCanceledException ex)
+        {
+            // Don't fail recording if VA is not running
+            _logger.LogDebug(ex, "Could not stop speech lock on VirtualAssistant (timeout)");
         }
     }
 }

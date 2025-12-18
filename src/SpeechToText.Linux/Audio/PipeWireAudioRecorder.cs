@@ -2,14 +2,14 @@ using System.Buffers;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 
-namespace Olbrasoft.SpeechToText;
+namespace Olbrasoft.SpeechToText.Audio;
 
 /// <summary>
-/// Linux ALSA-based audio recorder using arecord/pw-record command-line tool.
+/// Linux audio recorder using pw-cat (PipeWire) or arecord (ALSA) command-line tool.
 /// </summary>
-public class AlsaAudioRecorder : IAudioRecorder
+public class PipeWireAudioRecorder : IAudioRecorder
 {
-    private readonly ILogger<AlsaAudioRecorder> _logger;
+    private readonly ILogger<PipeWireAudioRecorder> _logger;
     private readonly int _sampleRate;
     private readonly int _channels;
     private readonly int _bitsPerSample;
@@ -22,15 +22,15 @@ public class AlsaAudioRecorder : IAudioRecorder
     private CancellationTokenSource? _cts;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="AlsaAudioRecorder"/> class.
+    /// Initializes a new instance of the <see cref="PipeWireAudioRecorder"/> class.
     /// </summary>
     /// <param name="logger">Logger instance.</param>
     /// <param name="sampleRate">Sample rate in Hz (default: 16000).</param>
     /// <param name="channels">Number of channels (default: 1 for mono).</param>
     /// <param name="bitsPerSample">Bits per sample (default: 16).</param>
     /// <param name="deviceName">ALSA device name (optional, uses default if not specified).</param>
-    public AlsaAudioRecorder(
-        ILogger<AlsaAudioRecorder> logger,
+    public PipeWireAudioRecorder(
+        ILogger<PipeWireAudioRecorder> logger,
         int sampleRate = 16000,
         int channels = 1,
         int bitsPerSample = 16,
@@ -63,7 +63,7 @@ public class AlsaAudioRecorder : IAudioRecorder
     public async Task StartRecordingAsync(CancellationToken cancellationToken = default)
     {
         if (_disposed)
-            throw new ObjectDisposedException(nameof(AlsaAudioRecorder));
+            throw new ObjectDisposedException(nameof(PipeWireAudioRecorder));
 
         if (_isRecording)
         {
@@ -76,11 +76,12 @@ public class AlsaAudioRecorder : IAudioRecorder
             _recordedData.Clear();
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-            // Try pw-record first (PipeWire), fallback to arecord (ALSA)
-            var recordCommand = CheckCommandAvailable("pw-record") ? "pw-record" : "arecord";
+            // Try pw-cat first (PipeWire), fallback to arecord (ALSA)
+            var usePipeWire = CheckCommandAvailable("pw-cat");
+            var recordCommand = usePipeWire ? "pw-cat" : "arecord";
 
-            var arguments = recordCommand == "pw-record"
-                ? $"--format s16 --rate {_sampleRate} --channels {_channels} -"
+            var arguments = usePipeWire
+                ? $"-r --format s16 --rate {_sampleRate} --channels {_channels} -"
                 : $"-f S16_LE -r {_sampleRate} -c {_channels} -D {_deviceName} -";
 
             _recordProcess = new Process
