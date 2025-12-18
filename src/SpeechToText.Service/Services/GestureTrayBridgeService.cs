@@ -41,26 +41,38 @@ public class GestureTrayBridgeService : IHostedService
 
     private void OnGestureDetected(object? sender, GestureEvent e)
     {
-        var iconName = MapGestureToIcon(e.GestureType);
+        var iconName = MapGestureToIcon(e.GestureType, e.IsLeftHand, e.IsConfirmed);
         _trayService.UpdateGestureIcon(e.IsLeftHand, iconName);
 
-        _logger.LogInformation("Gesture {Gesture} detected on {Hand} hand, updating tray icon to {Icon}",
-            e.GestureType, e.IsLeftHand ? "left" : "right", iconName);
+        _logger.LogInformation("Gesture {Gesture} {Status} on {Hand} hand, updating tray icon to {Icon}",
+            e.GestureType, e.IsConfirmed ? "confirmed" : "pending", e.IsLeftHand ? "left" : "right", iconName);
     }
 
-    private string MapGestureToIcon(GestureType gesture)
+    private string MapGestureToIcon(GestureType gesture, bool isLeftHand, bool isConfirmed)
     {
-        return gesture switch
+        // Map gesture type to icon base name
+        var baseName = gesture switch
         {
-            GestureType.Fist => "gesture-fist",
-            GestureType.Victory => "gesture-victory",
-            GestureType.OpenPalm => "gesture-openpalm",
-            GestureType.PointingUp => "gesture-pointing",
-            GestureType.Ok => "gesture-ok",
-            GestureType.ThumbsUp => "gesture-thumbsup",
-            GestureType.ThumbsDown => "gesture-thumbsdown",
-            GestureType.None => "left-mouse", // Default transparent placeholder
-            _ => "left-mouse" // Default for unknown gestures
+            GestureType.Fist => "fist",
+            GestureType.Victory => "victory",
+            GestureType.OpenPalm => "stop",
+            GestureType.PointingUp => "point",
+            GestureType.Ok => "ok",
+            GestureType.ThumbsUp => "thumbs-up",
+            GestureType.None => null,
+            _ => null
         };
+
+        // If no valid gesture, return placeholder
+        if (baseName == null)
+        {
+            return isLeftHand ? "left-mouse" : "right-mouse";
+        }
+
+        // Build icon name: {gesture}-[orange-]{left/right}-hand
+        var handSide = isLeftHand ? "left" : "right";
+        var colorPrefix = isConfirmed ? "orange-" : "";
+
+        return $"{baseName}-{colorPrefix}{handSide}-hand";
     }
 }

@@ -89,31 +89,51 @@ public class GestureDetectionService : BackgroundService
 
                         if (_sameGestureCount >= StableFramesRequired)
                         {
-                            // Gesture is stable, check cooldown
+                            // Gesture is stable (confirmed), check cooldown
                             var now = DateTime.UtcNow;
                             if (now - _lastEventTime > _eventCooldown)
                             {
-                                // Raise event
+                                // Raise confirmed event
                                 var gestureEvent = new GestureEvent
                                 {
                                     GestureType = gesture,
                                     IsLeftHand = landmarkResult.IsLeftHand,
                                     Timestamp = now,
                                     Confidence = landmarkResult.Score,
-                                    ExtendedFingers = landmarkResult.ExtendedFingers
+                                    ExtendedFingers = landmarkResult.ExtendedFingers,
+                                    IsConfirmed = true
                                 };
 
                                 GestureDetected?.Invoke(this, gestureEvent);
                                 _lastEventTime = now;
-                                _logger.LogInformation("Gesture detected: {Gesture} ({Hand} hand, {Fingers} fingers)",
+                                _logger.LogInformation("Gesture confirmed: {Gesture} ({Hand} hand, {Fingers} fingers)",
                                     gesture, landmarkResult.IsLeftHand ? "Left" : "Right", landmarkResult.ExtendedFingers);
                             }
                         }
                     }
                     else
                     {
+                        // New gesture detected
                         _lastGesture = gesture;
                         _sameGestureCount = 1;
+
+                        // Emit pending event for immediate feedback
+                        if (gesture != GestureType.None)
+                        {
+                            var pendingEvent = new GestureEvent
+                            {
+                                GestureType = gesture,
+                                IsLeftHand = landmarkResult.IsLeftHand,
+                                Timestamp = DateTime.UtcNow,
+                                Confidence = landmarkResult.Score,
+                                ExtendedFingers = landmarkResult.ExtendedFingers,
+                                IsConfirmed = false
+                            };
+
+                            GestureDetected?.Invoke(this, pendingEvent);
+                            _logger.LogDebug("Gesture pending: {Gesture} ({Hand} hand)",
+                                gesture, landmarkResult.IsLeftHand ? "Left" : "Right");
+                        }
                     }
                 }
                 catch (OperationCanceledException)
